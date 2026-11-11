@@ -4,12 +4,16 @@ import {
   BhavaChalitChartResponse,
   calculateBhavaChalitChart,
   calculateD1Chart,
+  calculateHouseSignificators,
   calculateKpChart,
   D1ChartResponse,
   D1House,
+  HouseSignificator,
+  HouseSignificatorsChartResponse,
   KpChartResponse,
   PlaceSearchResult,
   PositionRow,
+  SignificatorPlanet,
   searchPlaces
 } from "./api/kpClient";
 import { NorthIndianChart } from "./components/NorthIndianChart";
@@ -113,7 +117,122 @@ function adaptBhavaChalitHouses(chart: BhavaChalitChartResponse): D1House[] {
   }));
 }
 
-function ResultsTable({ rows }: { rows: PositionRow[] }) {
+function formatHouseList(values: number[]) {
+  return values.length ? values.join(", ") : "-";
+}
+
+function formatSignificatorText(item: SignificatorPlanet) {
+  return `${item.short_name} ${formatHouseList(item.significations)}`;
+}
+
+function SignificatorCell({ item }: { item?: SignificatorPlanet }) {
+  if (!item) {
+    return <span className="text-[#9aa5b1]">-</span>;
+  }
+
+  return (
+    <div className="grid gap-1">
+      <div className="font-semibold text-[#18202b]">
+        {formatSignificatorText(item)}
+      </div>
+      {item.node_rashi_lord && (
+        <div className="text-xs text-[#5d6876]">
+          {item.node_rashi_lord.short_name} RL {formatHouseList(item.node_rashi_lord.rashi_lord_houses)}
+        </div>
+      )}
+      {item.is_duplicate_replacement && item.original_short_name && (
+        <div className="text-xs text-[#5d6876]">
+          {item.original_short_name} replaced by {item.short_name}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function significatorRows(house: HouseSignificator) {
+  const level1 = house.levels.find((level) => level.level === 1)?.items ?? [];
+  const level2 = house.levels.find((level) => level.level === 2)?.items ?? [];
+  const level3 = house.levels.find((level) => level.level === 3)?.items ?? [];
+
+  return [
+    { label: "SL", primary: level1[0], secondary: undefined },
+    { label: "STL", primary: level2[0], secondary: level3[0] },
+    { label: "SL", primary: level2[1], secondary: level3[1] }
+  ];
+}
+
+function HouseSignificatorModal({
+  house,
+  onClose
+}: {
+  house: HouseSignificator;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-[#18202b]/45 p-4"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <div
+        aria-modal="true"
+        className="max-h-[86vh] w-full max-w-[860px] overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
+        role="dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="m-0 text-lg">House {house.house_number} Significators</h2>
+            <div className="text-sm text-[#5d6876]">SL {house.source_sub_lord_short_name}</div>
+          </div>
+          <button
+            aria-label="Close"
+            className="min-h-8 min-w-8 rounded-md border border-[#b9c4cf] bg-white px-2 text-[#314154]"
+            type="button"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] border-collapse">
+            <thead>
+              <tr>
+                <th className="w-24 border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">Lord</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">Planet</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">STL</th>
+              </tr>
+            </thead>
+            <tbody>
+              {significatorRows(house).map((row, index) => (
+                <tr key={`${row.label}-${index}`}>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap">
+                    {row.label}
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top">
+                    <SignificatorCell item={row.primary} />
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top">
+                    <SignificatorCell item={row.secondary} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ResultsTable({
+  rows,
+  onNameClick
+}: {
+  rows: PositionRow[];
+  onNameClick?: (row: PositionRow, index: number) => void;
+}) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[820px] border-collapse">
@@ -129,9 +248,21 @@ function ResultsTable({ rows }: { rows: PositionRow[] }) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row, index) => (
             <tr key={row.label}>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.label}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">
+                {onNameClick ? (
+                  <button
+                    className="cursor-pointer font-semibold text-[#214668] underline-offset-2 hover:underline"
+                    type="button"
+                    onClick={() => onNameClick(row, index)}
+                  >
+                    {row.label}
+                  </button>
+                ) : (
+                  row.label
+                )}
+              </td>
               <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.sign}</td>
               <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.dms}</td>
               <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.kp.rasi_lord}</td>
@@ -162,6 +293,10 @@ export default function App() {
   const [d1Chart, setD1Chart] = useState<D1ChartResponse | null>(null);
   const [bhavaChalitChart, setBhavaChalitChart] =
     useState<BhavaChalitChartResponse | null>(null);
+  const [houseSignificators, setHouseSignificators] =
+    useState<HouseSignificatorsChartResponse | null>(null);
+  const [selectedSignificatorHouse, setSelectedSignificatorHouse] =
+    useState<HouseSignificator | null>(null);
   const [status, setStatus] = useState("");
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -274,20 +409,30 @@ export default function App() {
           include_western_planets: includeWesternPlanets
         }
       };
-      const [kpResponse, d1Response, bhavaChalitResponse] = await Promise.all([
+      const [
+        kpResponse,
+        d1Response,
+        bhavaChalitResponse,
+        houseSignificatorsResponse
+      ] = await Promise.all([
         calculateKpChart(payload),
         calculateD1Chart(payload),
-        calculateBhavaChalitChart(payload)
+        calculateBhavaChalitChart(payload),
+        calculateHouseSignificators(payload)
       ]);
 
       setChart(kpResponse);
       setD1Chart(d1Response);
       setBhavaChalitChart(bhavaChalitResponse);
+      setHouseSignificators(houseSignificatorsResponse);
+      setSelectedSignificatorHouse(null);
       setStatus("Chart calculated.");
     } catch (error) {
       setChart(null);
       setD1Chart(null);
       setBhavaChalitChart(null);
+      setHouseSignificators(null);
+      setSelectedSignificatorHouse(null);
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
     } finally {
       setIsCalculating(false);
@@ -506,7 +651,15 @@ export default function App() {
             <>
               <div>
                 <h2 className="mb-2.5 text-lg">Cuspal Positions</h2>
-                <ResultsTable rows={chart.cusps} />
+                <ResultsTable
+                  rows={chart.cusps}
+                  onNameClick={(_, index) => {
+                    const house = houseSignificators?.houses[index];
+                    if (house) {
+                      setSelectedSignificatorHouse(house);
+                    }
+                  }}
+                />
               </div>
 
               <div>
@@ -516,6 +669,12 @@ export default function App() {
             </>
           )}
         </section>
+      )}
+      {selectedSignificatorHouse && (
+        <HouseSignificatorModal
+          house={selectedSignificatorHouse}
+          onClose={() => setSelectedSignificatorHouse(null)}
+        />
       )}
       </div>
     </main>

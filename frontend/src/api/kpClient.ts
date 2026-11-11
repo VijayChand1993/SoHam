@@ -163,6 +163,47 @@ export type BhavaChalitChartResponse = {
   houses: BhavaChalitHouse[];
 };
 
+export type RelatedSignificatorPlanet = {
+  planet: string;
+  short_name: string;
+  occupied_house: number | null;
+  rashi_lord_houses: number[];
+  significations: number[];
+};
+
+export type SignificatorPlanet = {
+  role: string;
+  planet: string;
+  short_name: string;
+  occupied_house: number | null;
+  rashi_lord_houses: number[];
+  significations: number[];
+  original_planet: string | null;
+  original_short_name: string | null;
+  is_duplicate_replacement: boolean;
+  node_rashi_lord: RelatedSignificatorPlanet | null;
+};
+
+export type HouseSignificatorLevel = {
+  level: number;
+  items: SignificatorPlanet[];
+};
+
+export type HouseSignificator = {
+  house_number: number;
+  source_sub_lord: string;
+  source_sub_lord_short_name: string;
+  levels: HouseSignificatorLevel[];
+};
+
+export type HouseSignificatorsChartResponse = {
+  name: string;
+  birth_datetime: BirthDateTimeRequest;
+  location: Required<LocationRequest>;
+  settings: KpChartRequest["settings"];
+  houses: HouseSignificator[];
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -207,6 +248,15 @@ export function calculateBhavaChalitChart(
   payload: KpChartRequest
 ): Promise<BhavaChalitChartResponse> {
   return requestJson<BhavaChalitChartResponse>("/api/chart/bhava-chalit", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateHouseSignificators(
+  payload: KpChartRequest
+): Promise<HouseSignificatorsChartResponse> {
+  return requestJson<HouseSignificatorsChartResponse>("/api/kp/house-significators", {
     method: "POST",
     body: JSON.stringify(payload)
   });

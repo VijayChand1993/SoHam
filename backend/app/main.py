@@ -5,6 +5,7 @@ from app.models import (
     BhavaChalitChartResponse,
     D1ChartResponse,
     HealthResponse,
+    HouseSignificatorsChartResponse,
     KpChartRequest,
     KpChartResponse,
     PlaceSearchResponse,
@@ -13,6 +14,7 @@ from app.services.kp_calculator import (
     calculate_bhava_chalit_chart_response,
     calculate_chart_response,
     calculate_d1_chart_response,
+    calculate_house_significators_response,
 )
 from app.services.places import search_places
 
@@ -74,6 +76,16 @@ def d1_chart(request: KpChartRequest) -> D1ChartResponse:
 def bhava_chalit_chart(request: KpChartRequest) -> BhavaChalitChartResponse:
     try:
         return calculate_bhava_chalit_chart_response(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/kp/house-significators", response_model=HouseSignificatorsChartResponse)
+def house_significators(request: KpChartRequest) -> HouseSignificatorsChartResponse:
+    try:
+        return calculate_house_significators_response(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

@@ -183,6 +183,55 @@ class BhavaChalitChart:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class RelatedSignificatorPlanet:
+    planet: str
+    short_name: str
+    occupied_house: int | None
+    rashi_lord_houses: list[int]
+    significations: list[int]
+
+
+@dataclass(frozen=True)
+class SignificatorPlanet:
+    role: str
+    planet: str
+    short_name: str
+    occupied_house: int | None
+    rashi_lord_houses: list[int]
+    significations: list[int]
+    original_planet: str | None = None
+    original_short_name: str | None = None
+    is_duplicate_replacement: bool = False
+    node_rashi_lord: RelatedSignificatorPlanet | None = None
+
+
+@dataclass(frozen=True)
+class HouseSignificatorLevel:
+    level: int
+    items: list[SignificatorPlanet]
+
+
+@dataclass(frozen=True)
+class HouseSignificator:
+    house_number: int
+    source_sub_lord: str
+    source_sub_lord_short_name: str
+    levels: list[HouseSignificatorLevel]
+
+
+@dataclass(frozen=True)
+class HouseSignificatorsChart:
+    name: str
+    birth_datetime: BirthDateTime
+    location: Location
+    settings: CalculationSettings
+    houses: list[HouseSignificator]
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 def parse_dms(value: str) -> float:
     parts = str(value).strip().replace(" ", ":").split(":")
     if not 1 <= len(parts) <= 3:
@@ -403,6 +452,15 @@ def _chart_planet(
     )
 
 
+def _unique_preserving_order(values: list[int | None]) -> list[int]:
+    unique_values = []
+    for value in values:
+        if value is None or value in unique_values:
+            continue
+        unique_values.append(value)
+    return unique_values
+
+
 def _bhava_chalit_planet(
     planet: int | str,
     sign_index: int,
@@ -423,6 +481,155 @@ def _bhava_chalit_planet(
         bhava_house_number=bhava_house_number,
         state_flags=state_flags or PlanetStateFlags(),
     )
+
+
+def _cusp_lord_context(
+    jd: float,
+    place: Any,
+    settings: CalculationSettings,
+) -> tuple[dict[int, int], dict[int, int], dict[int, list[int]]]:
+    bhava_info = charts._bhaava_madhya_new(
+        jd,
+        place,
+        divisional_chart_factor=1,
+        bhava_madhya_method=settings.house_cusp_method,
+    )
+    cusp_sub_lords = {}
+    cusp_rashi_lords = {}
+    cusp_rashi_lord_houses: dict[int, list[int]] = {}
+
+    for house_number, (_, (_, cusp_longitude, _), _) in enumerate(
+        bhava_info,
+        start=1,
+    ):
+        label = f"House-{house_number}"
+        kp_details = utils.kp_lords_for_longitude(label, cusp_longitude)[label]
+        sign_index, _ = split_longitude(cusp_longitude)
+        rashi_lord = const._house_owners_list[sign_index]
+        cusp_sub_lords[house_number] = kp_details[2]
+        cusp_rashi_lords[house_number] = rashi_lord
+        cusp_rashi_lord_houses.setdefault(rashi_lord, []).append(house_number)
+
+    return cusp_sub_lords, cusp_rashi_lords, cusp_rashi_lord_houses
+
+
+def _bhava_placement_context(
+    jd: float,
+    place: Any,
+    settings: CalculationSettings,
+    position_by_object: dict[int | str, tuple[int, float]],
+) -> tuple[dict[int | str, int], dict[int | str, int]]:
+    bhava_info = charts._bhaava_madhya_new(
+        jd,
+        place,
+        divisional_chart_factor=1,
+        bhava_madhya_method=settings.house_cusp_method,
+        ascendant_is_middle_of_house=False,
+    )
+    occupied_house_by_planet = {}
+    bhava_rashi_lord_by_planet = {}
+
+    for house_number, (_, (start_longitude, _, _), planets) in enumerate(
+        bhava_info,
+        start=1,
+    ):
+        cusp_sign_index, _ = split_longitude(start_longitude)
+        bhava_rashi_lord = const._house_owners_list[cusp_sign_index]
+
+        for planet in planets:
+            occupied_house_by_planet[planet] = house_number
+            bhava_rashi_lord_by_planet[planet] = bhava_rashi_lord
+
+    for planet, (sign_index, _) in position_by_object.items():
+        bhava_rashi_lord_by_planet.setdefault(
+            planet,
+            const._house_owners_list[sign_index],
+        )
+
+    return occupied_house_by_planet, bhava_rashi_lord_by_planet
+
+
+def _planet_significations(
+    planet: int,
+    occupied_house_by_planet: dict[int | str, int],
+    cusp_rashi_lord_houses: dict[int, list[int]],
+) -> tuple[int | None, list[int], list[int]]:
+    occupied_house = occupied_house_by_planet.get(planet)
+    rashi_lord_houses = cusp_rashi_lord_houses.get(planet, [])
+    significations = _unique_preserving_order([occupied_house, *rashi_lord_houses])
+    return occupied_house, rashi_lord_houses, significations
+
+
+def _related_significator_planet(
+    planet: int,
+    occupied_house_by_planet: dict[int | str, int],
+    cusp_rashi_lord_houses: dict[int, list[int]],
+) -> RelatedSignificatorPlanet:
+    occupied_house, rashi_lord_houses, significations = _planet_significations(
+        planet,
+        occupied_house_by_planet,
+        cusp_rashi_lord_houses,
+    )
+    return RelatedSignificatorPlanet(
+        planet=chart_planet_name(planet),
+        short_name=chart_planet_short_name(planet),
+        occupied_house=occupied_house,
+        rashi_lord_houses=rashi_lord_houses,
+        significations=significations,
+    )
+
+
+def _significator_planet(
+    *,
+    role: str,
+    planet: int,
+    occupied_house_by_planet: dict[int | str, int],
+    cusp_rashi_lord_houses: dict[int, list[int]],
+    bhava_rashi_lord_by_planet: dict[int | str, int],
+    original_planet: int | None = None,
+    is_duplicate_replacement: bool = False,
+) -> SignificatorPlanet:
+    occupied_house, rashi_lord_houses, significations = _planet_significations(
+        planet,
+        occupied_house_by_planet,
+        cusp_rashi_lord_houses,
+    )
+    node_rashi_lord = None
+    if planet in {const.RAHU_ID, const.KETU_ID}:
+        node_rashi_lord = _related_significator_planet(
+            bhava_rashi_lord_by_planet[planet],
+            occupied_house_by_planet,
+            cusp_rashi_lord_houses,
+        )
+
+    return SignificatorPlanet(
+        role=role,
+        planet=chart_planet_name(planet),
+        short_name=chart_planet_short_name(planet),
+        occupied_house=occupied_house,
+        rashi_lord_houses=rashi_lord_houses,
+        significations=significations,
+        original_planet=(
+            chart_planet_name(original_planet) if original_planet is not None else None
+        ),
+        original_short_name=(
+            chart_planet_short_name(original_planet)
+            if original_planet is not None
+            else None
+        ),
+        is_duplicate_replacement=is_duplicate_replacement,
+        node_rashi_lord=node_rashi_lord,
+    )
+
+
+def _replace_second_duplicate_with_bhava_rashi_lord(
+    planets: tuple[int, int],
+    bhava_rashi_lord_by_planet: dict[int | str, int],
+) -> tuple[tuple[int, int], int | None]:
+    first, second = planets
+    if first != second:
+        return planets, None
+    return (first, bhava_rashi_lord_by_planet[second]), second
 
 
 def calculate_kp_chart(
@@ -622,5 +829,138 @@ def calculate_bhava_chalit_chart(
         location=location,
         settings=settings,
         ascendant=ascendant,
+        houses=houses,
+    )
+
+
+def calculate_house_significators(
+    *,
+    name: str,
+    birth_datetime: BirthDateTime,
+    location: Location,
+    settings: CalculationSettings | None = None,
+) -> HouseSignificatorsChart:
+    settings = settings or CalculationSettings()
+    _apply_settings(settings)
+
+    _, _, place, jd = _date_time_place(birth_datetime, location)
+    planet_positions = _d1_positions(jd, place)
+    position_by_object = {
+        planet: (sign_index, degree_decimal)
+        for planet, (sign_index, degree_decimal) in planet_positions
+    }
+    planet_kp = charts.get_KP_lords_from_planet_positions(planet_positions)
+    cusp_sub_lords, _, cusp_rashi_lord_houses = _cusp_lord_context(
+        jd,
+        place,
+        settings,
+    )
+    occupied_house_by_planet, bhava_rashi_lord_by_planet = _bhava_placement_context(
+        jd,
+        place,
+        settings,
+        position_by_object,
+    )
+
+    houses = []
+    for house_number in range(1, 13):
+        source_sub_lord = cusp_sub_lords[house_number]
+        level_1_planets = (source_sub_lord,)
+
+        level_2_raw = (
+            planet_kp[source_sub_lord][1],
+            planet_kp[source_sub_lord][2],
+        )
+        level_2_planets, level_2_replaced_original = (
+            _replace_second_duplicate_with_bhava_rashi_lord(
+                level_2_raw,
+                bhava_rashi_lord_by_planet,
+            )
+        )
+
+        level_3_raw = (
+            planet_kp[level_2_raw[0]][1],
+            planet_kp[level_2_raw[1]][1],
+        )
+        level_3_planets, level_3_replaced_original = (
+            _replace_second_duplicate_with_bhava_rashi_lord(
+                level_3_raw,
+                bhava_rashi_lord_by_planet,
+            )
+        )
+
+        levels = [
+            HouseSignificatorLevel(
+                level=1,
+                items=[
+                    _significator_planet(
+                        role="SL",
+                        planet=level_1_planets[0],
+                        occupied_house_by_planet=occupied_house_by_planet,
+                        cusp_rashi_lord_houses=cusp_rashi_lord_houses,
+                        bhava_rashi_lord_by_planet=bhava_rashi_lord_by_planet,
+                    )
+                ],
+            ),
+            HouseSignificatorLevel(
+                level=2,
+                items=[
+                    _significator_planet(
+                        role="STL_OF_SL",
+                        planet=level_2_planets[0],
+                        occupied_house_by_planet=occupied_house_by_planet,
+                        cusp_rashi_lord_houses=cusp_rashi_lord_houses,
+                        bhava_rashi_lord_by_planet=bhava_rashi_lord_by_planet,
+                    ),
+                    _significator_planet(
+                        role="SL_OF_SL",
+                        planet=level_2_planets[1],
+                        occupied_house_by_planet=occupied_house_by_planet,
+                        cusp_rashi_lord_houses=cusp_rashi_lord_houses,
+                        bhava_rashi_lord_by_planet=bhava_rashi_lord_by_planet,
+                        original_planet=level_2_replaced_original,
+                        is_duplicate_replacement=level_2_replaced_original
+                        is not None,
+                    ),
+                ],
+            ),
+            HouseSignificatorLevel(
+                level=3,
+                items=[
+                    _significator_planet(
+                        role="STL_OF_LEVEL_2_STL",
+                        planet=level_3_planets[0],
+                        occupied_house_by_planet=occupied_house_by_planet,
+                        cusp_rashi_lord_houses=cusp_rashi_lord_houses,
+                        bhava_rashi_lord_by_planet=bhava_rashi_lord_by_planet,
+                    ),
+                    _significator_planet(
+                        role="STL_OF_LEVEL_2_SL",
+                        planet=level_3_planets[1],
+                        occupied_house_by_planet=occupied_house_by_planet,
+                        cusp_rashi_lord_houses=cusp_rashi_lord_houses,
+                        bhava_rashi_lord_by_planet=bhava_rashi_lord_by_planet,
+                        original_planet=level_3_replaced_original,
+                        is_duplicate_replacement=level_3_replaced_original
+                        is not None,
+                    ),
+                ],
+            ),
+        ]
+
+        houses.append(
+            HouseSignificator(
+                house_number=house_number,
+                source_sub_lord=chart_planet_name(source_sub_lord),
+                source_sub_lord_short_name=chart_planet_short_name(source_sub_lord),
+                levels=levels,
+            )
+        )
+
+    return HouseSignificatorsChart(
+        name=name,
+        birth_datetime=birth_datetime,
+        location=location,
+        settings=settings,
         houses=houses,
     )

@@ -3,12 +3,14 @@ from kp_core import (
     CalculationSettings,
     calculate_bhava_chalit_chart,
     calculate_d1_chart,
+    calculate_house_significators,
     calculate_kp_chart,
 )
 
 from app.models import (
     BhavaChalitChartResponse,
     D1ChartResponse,
+    HouseSignificatorsChartResponse,
     KpChartRequest,
     KpChartResponse,
 )
@@ -45,3 +47,15 @@ def calculate_bhava_chalit_chart_response(
         settings=CalculationSettings(**request.settings.model_dump()),
     )
     return BhavaChalitChartResponse.model_validate(chart.to_dict())
+
+
+def calculate_house_significators_response(
+    request: KpChartRequest,
+) -> HouseSignificatorsChartResponse:
+    chart = calculate_house_significators(
+        name=request.name,
+        birth_datetime=BirthDateTime(**request.birth_datetime.model_dump()),
+        location=to_core_location(request.location),
+        settings=CalculationSettings(**request.settings.model_dump()),
+    )
+    return HouseSignificatorsChartResponse.model_validate(chart.to_dict())

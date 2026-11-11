@@ -181,6 +181,47 @@ class BhavaChalitChartResponse(BaseModel):
     houses: list[BhavaChalitHouseResponse]
 
 
+class RelatedSignificatorPlanetResponse(BaseModel):
+    planet: str
+    short_name: str
+    occupied_house: int | None
+    rashi_lord_houses: list[int]
+    significations: list[int]
+
+
+class SignificatorPlanetResponse(BaseModel):
+    role: str
+    planet: str
+    short_name: str
+    occupied_house: int | None
+    rashi_lord_houses: list[int]
+    significations: list[int]
+    original_planet: str | None = None
+    original_short_name: str | None = None
+    is_duplicate_replacement: bool = False
+    node_rashi_lord: RelatedSignificatorPlanetResponse | None = None
+
+
+class HouseSignificatorLevelResponse(BaseModel):
+    level: int
+    items: list[SignificatorPlanetResponse]
+
+
+class HouseSignificatorResponse(BaseModel):
+    house_number: int
+    source_sub_lord: str
+    source_sub_lord_short_name: str
+    levels: list[HouseSignificatorLevelResponse]
+
+
+class HouseSignificatorsChartResponse(BaseModel):
+    name: str
+    birth_datetime: BirthDateTimeRequest
+    location: LocationRequest
+    settings: CalculationSettingsRequest
+    houses: list[HouseSignificatorResponse]
+
+
 class PlaceSearchResult(BaseModel):
     display_name: str
     city: str = ""
