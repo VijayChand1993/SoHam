@@ -92,6 +92,95 @@ class KpChartResponse(BaseModel):
     planets: list[PositionRowResponse]
 
 
+class PlanetStateFlagsResponse(BaseModel):
+    retrograde: bool = False
+    combust: bool = False
+    exalted: bool = False
+    debilitated: bool = False
+
+
+class ChartPlanetResponse(BaseModel):
+    name: str
+    short_name: str
+    sign: str
+    sign_index: int
+    sign_number: int
+    degree: str
+    degree_decimal: float
+    absolute_longitude: float
+    state_flags: PlanetStateFlagsResponse
+
+
+class D1AscendantResponse(BaseModel):
+    sign: str
+    sign_index: int
+    sign_number: int
+    degree: str
+    degree_decimal: float
+    absolute_longitude: float
+
+
+class D1HouseResponse(BaseModel):
+    house_number: int
+    sign: str
+    sign_index: int
+    sign_number: int
+    planets: list[ChartPlanetResponse]
+
+
+class D1ChartResponse(BaseModel):
+    chart: Literal["D-1"]
+    chart_style: Literal["north_indian"]
+    name: str
+    birth_datetime: BirthDateTimeRequest
+    location: LocationRequest
+    settings: CalculationSettingsRequest
+    ascendant: D1AscendantResponse
+    houses: list[D1HouseResponse]
+
+
+class ChartPointResponse(BaseModel):
+    sign: str
+    sign_index: int
+    sign_number: int
+    degree: str
+    degree_decimal: float
+    absolute_longitude: float
+
+
+class BhavaChalitPlanetResponse(BaseModel):
+    name: str
+    short_name: str
+    rashi_sign: str
+    rashi_sign_index: int
+    rashi_sign_number: int
+    degree: str
+    degree_decimal: float
+    absolute_longitude: float
+    bhava_house_number: int
+    state_flags: PlanetStateFlagsResponse
+
+
+class BhavaChalitHouseResponse(BaseModel):
+    house_number: int
+    display_number: int
+    start: ChartPointResponse
+    cusp: ChartPointResponse
+    end: ChartPointResponse
+    planets: list[BhavaChalitPlanetResponse]
+
+
+class BhavaChalitChartResponse(BaseModel):
+    chart: Literal["Bhava Chalit"]
+    chart_style: Literal["north_indian"]
+    name: str
+    birth_datetime: BirthDateTimeRequest
+    location: LocationRequest
+    settings: CalculationSettingsRequest
+    ascendant: ChartPointResponse
+    houses: list[BhavaChalitHouseResponse]
+
+
 class PlaceSearchResult(BaseModel):
     display_name: str
     city: str = ""

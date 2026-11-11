@@ -2,12 +2,18 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import (
+    BhavaChalitChartResponse,
+    D1ChartResponse,
     HealthResponse,
     KpChartRequest,
     KpChartResponse,
     PlaceSearchResponse,
 )
-from app.services.kp_calculator import calculate_chart_response
+from app.services.kp_calculator import (
+    calculate_bhava_chalit_chart_response,
+    calculate_chart_response,
+    calculate_d1_chart_response,
+)
 from app.services.places import search_places
 
 app = FastAPI(title="SoHam API")
@@ -48,6 +54,26 @@ def places(
 def kp_chart(request: KpChartRequest) -> KpChartResponse:
     try:
         return calculate_chart_response(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/chart/d-1", response_model=D1ChartResponse)
+def d1_chart(request: KpChartRequest) -> D1ChartResponse:
+    try:
+        return calculate_d1_chart_response(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/chart/bhava-chalit", response_model=BhavaChalitChartResponse)
+def bhava_chalit_chart(request: KpChartRequest) -> BhavaChalitChartResponse:
+    try:
+        return calculate_bhava_chalit_chart_response(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

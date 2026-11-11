@@ -74,6 +74,95 @@ export type KpChartResponse = {
   planets: PositionRow[];
 };
 
+export type PlanetStateFlags = {
+  retrograde: boolean;
+  combust: boolean;
+  exalted: boolean;
+  debilitated: boolean;
+};
+
+export type D1ChartPlanet = {
+  name: string;
+  short_name: string;
+  sign: string;
+  sign_index: number;
+  sign_number: number;
+  degree: string;
+  degree_decimal: number;
+  absolute_longitude: number;
+  state_flags: PlanetStateFlags;
+};
+
+export type D1Ascendant = {
+  sign: string;
+  sign_index: number;
+  sign_number: number;
+  degree: string;
+  degree_decimal: number;
+  absolute_longitude: number;
+};
+
+export type D1House = {
+  house_number: number;
+  sign: string;
+  sign_index: number;
+  sign_number: number;
+  planets: D1ChartPlanet[];
+};
+
+export type D1ChartResponse = {
+  chart: "D-1";
+  chart_style: "north_indian";
+  name: string;
+  birth_datetime: BirthDateTimeRequest;
+  location: Required<LocationRequest>;
+  settings: KpChartRequest["settings"];
+  ascendant: D1Ascendant;
+  houses: D1House[];
+};
+
+export type ChartPoint = {
+  sign: string;
+  sign_index: number;
+  sign_number: number;
+  degree: string;
+  degree_decimal: number;
+  absolute_longitude: number;
+};
+
+export type BhavaChalitPlanet = {
+  name: string;
+  short_name: string;
+  rashi_sign: string;
+  rashi_sign_index: number;
+  rashi_sign_number: number;
+  degree: string;
+  degree_decimal: number;
+  absolute_longitude: number;
+  bhava_house_number: number;
+  state_flags: PlanetStateFlags;
+};
+
+export type BhavaChalitHouse = {
+  house_number: number;
+  display_number: number;
+  start: ChartPoint;
+  cusp: ChartPoint;
+  end: ChartPoint;
+  planets: BhavaChalitPlanet[];
+};
+
+export type BhavaChalitChartResponse = {
+  chart: "Bhava Chalit";
+  chart_style: "north_indian";
+  name: string;
+  birth_datetime: BirthDateTimeRequest;
+  location: Required<LocationRequest>;
+  settings: KpChartRequest["settings"];
+  ascendant: ChartPoint;
+  houses: BhavaChalitHouse[];
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -102,6 +191,22 @@ export function searchPlaces(query: string, limit = 8): Promise<PlaceSearchRespo
 
 export function calculateKpChart(payload: KpChartRequest): Promise<KpChartResponse> {
   return requestJson<KpChartResponse>("/api/kp-chart", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateD1Chart(payload: KpChartRequest): Promise<D1ChartResponse> {
+  return requestJson<D1ChartResponse>("/api/chart/d-1", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateBhavaChalitChart(
+  payload: KpChartRequest
+): Promise<BhavaChalitChartResponse> {
+  return requestJson<BhavaChalitChartResponse>("/api/chart/bhava-chalit", {
     method: "POST",
     body: JSON.stringify(payload)
   });

@@ -1,12 +1,18 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  BhavaChalitChartResponse,
+  calculateBhavaChalitChart,
+  calculateD1Chart,
   calculateKpChart,
+  D1ChartResponse,
+  D1House,
   KpChartResponse,
   PlaceSearchResult,
   PositionRow,
   searchPlaces
 } from "./api/kpClient";
+import { NorthIndianChart } from "./components/NorthIndianChart";
 
 const defaultDate = "1993-04-02";
 const defaultTime = "01:15:00";
@@ -87,6 +93,26 @@ function parseCoordinate(value: string, label: string, min: number, max: number)
   return parsed;
 }
 
+function adaptBhavaChalitHouses(chart: BhavaChalitChartResponse): D1House[] {
+  return chart.houses.map((house) => ({
+    house_number: house.house_number,
+    sign: house.cusp.sign,
+    sign_index: house.cusp.sign_index,
+    sign_number: house.display_number,
+    planets: house.planets.map((planet) => ({
+      name: planet.name,
+      short_name: planet.short_name,
+      sign: planet.rashi_sign,
+      sign_index: planet.rashi_sign_index,
+      sign_number: planet.rashi_sign_number,
+      degree: planet.degree,
+      degree_decimal: planet.degree_decimal,
+      absolute_longitude: planet.absolute_longitude,
+      state_flags: planet.state_flags
+    }))
+  }));
+}
+
 function ResultsTable({ rows }: { rows: PositionRow[] }) {
   return (
     <div className="overflow-x-auto">
@@ -131,7 +157,11 @@ export default function App() {
   const [manualLatitude, setManualLatitude] = useState("29.418");
   const [manualLongitude, setManualLongitude] = useState("80.207");
   const [manualTimezone, setManualTimezone] = useState("5.5");
+  const [includeWesternPlanets, setIncludeWesternPlanets] = useState(false);
   const [chart, setChart] = useState<KpChartResponse | null>(null);
+  const [d1Chart, setD1Chart] = useState<D1ChartResponse | null>(null);
+  const [bhavaChalitChart, setBhavaChalitChart] =
+    useState<BhavaChalitChartResponse | null>(null);
   const [status, setStatus] = useState("");
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
@@ -233,7 +263,7 @@ export default function App() {
     setIsCalculating(true);
 
     try {
-      const response = await calculateKpChart({
+      const payload = {
         name,
         birth_datetime: parseDateTime(date, time),
         location: getRequestLocation(),
@@ -241,13 +271,23 @@ export default function App() {
           ayanamsa_mode: "KP",
           house_cusp_method: 3,
           use_true_nodes: false,
-          include_western_planets: false
+          include_western_planets: includeWesternPlanets
         }
-      });
+      };
+      const [kpResponse, d1Response, bhavaChalitResponse] = await Promise.all([
+        calculateKpChart(payload),
+        calculateD1Chart(payload),
+        calculateBhavaChalitChart(payload)
+      ]);
 
-      setChart(response);
+      setChart(kpResponse);
+      setD1Chart(d1Response);
+      setBhavaChalitChart(bhavaChalitResponse);
       setStatus("Chart calculated.");
     } catch (error) {
+      setChart(null);
+      setD1Chart(null);
+      setBhavaChalitChart(null);
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
     } finally {
       setIsCalculating(false);
@@ -420,6 +460,16 @@ export default function App() {
             )}
           </div>
 
+          <label className="flex items-center gap-2 text-[13px] font-semibold">
+            <input
+              checked={includeWesternPlanets}
+              className="h-4 w-4 accent-[#214668]"
+              type="checkbox"
+              onChange={(event) => setIncludeWesternPlanets(event.target.checked)}
+            />
+            Include Uranus, Neptune, Pluto
+          </label>
+
           <button
             className="min-h-10 cursor-pointer rounded-md border border-[#214668] bg-[#214668] px-3.5 text-white disabled:cursor-wait disabled:opacity-65"
             type="submit"
@@ -432,17 +482,39 @@ export default function App() {
         {status && <div className="text-sm text-[#5d6876]">{status}</div>}
       </section>
 
-      {chart && (
+      {(chart || d1Chart || bhavaChalitChart) && (
         <section className="grid gap-6 rounded-lg border border-[#d8e0e8] bg-white p-5">
-          <div>
-            <h2 className="mb-2.5 text-lg">Cuspal Positions</h2>
-            <ResultsTable rows={chart.cusps} />
-          </div>
+          {(d1Chart || bhavaChalitChart) && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              {d1Chart && (
+                <div>
+                  <h2 className="mb-2.5 text-lg">Rashi Chart</h2>
+                  <NorthIndianChart houses={d1Chart.houses} />
+                </div>
+              )}
 
-          <div>
-            <h2 className="mb-2.5 text-lg">Planetary Positions</h2>
-            <ResultsTable rows={chart.planets} />
-          </div>
+              {bhavaChalitChart && (
+                <div>
+                  <h2 className="mb-2.5 text-lg">Bhava Chalit</h2>
+                  <NorthIndianChart houses={adaptBhavaChalitHouses(bhavaChalitChart)} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {chart && (
+            <>
+              <div>
+                <h2 className="mb-2.5 text-lg">Cuspal Positions</h2>
+                <ResultsTable rows={chart.cusps} />
+              </div>
+
+              <div>
+                <h2 className="mb-2.5 text-lg">Planetary Positions</h2>
+                <ResultsTable rows={chart.planets} />
+              </div>
+            </>
+          )}
         </section>
       )}
       </div>
