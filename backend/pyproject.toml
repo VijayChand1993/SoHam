@@ -1,0 +1,33 @@
+[project]
+name = "soham"
+version = "0.1.0"
+description = "SoHam KP astrology chart application"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.162.4",
+    "geocoder==1.38.1",
+    "geopy==2.4.1",
+    "img2pdf==0.5.1",
+    "numpy==2.1.1",
+    "pyjhora",
+    "pyqt6==6.7.1",
+    "pyqtgraph==0.13.7",
+    "pyswisseph==2.10.3.2",
+    "python-dateutil==2.9.0.post0",
+    "pytz==2024.1",
+    "requests==2.32.3",
+    "reverse-geocode==1.6.6",
+    "rich>=15.0.0",
+    "setuptools==69.5.1",
+    "timezonefinder==6.5.2",
+    "uvicorn>=0.54.0",
+]
+
+[tool.uv.sources]
+pyjhora = { git = "https://github.com/naturalstupid/PyJHora.git" }
+
+[dependency-groups]
+dev = [
+    "httpx2>=2.16.0",
+]
