@@ -109,6 +109,32 @@ class PositionRowResponse(BaseModel):
     kp: KpLordResponse
 
 
+class PlanetStateFlagsResponse(BaseModel):
+    retrograde: bool = False
+    combust: bool = False
+    exalted: bool = False
+    debilitated: bool = False
+
+
+class DirectRulingPlanetItemResponse(BaseModel):
+    label: str
+    role: str
+    planet: str
+    short_name: str
+    state_flags: PlanetStateFlagsResponse
+    bhava_house_number: int | None
+    house_rashi_lord: str | None
+    house_rashi_lord_short_name: str | None
+    rashi: str | None
+    rashi_number: int | None
+    reason: str | None = None
+
+
+class DirectRulingPlanetsResponse(BaseModel):
+    items: list[DirectRulingPlanetItemResponse]
+    unique_planets: list[str]
+
+
 class KpChartResponse(BaseModel):
     name: str
     birth_datetime: BirthDateTimeRequest
@@ -116,13 +142,7 @@ class KpChartResponse(BaseModel):
     settings: CalculationSettingsRequest
     cusps: list[PositionRowResponse]
     planets: list[PositionRowResponse]
-
-
-class PlanetStateFlagsResponse(BaseModel):
-    retrograde: bool = False
-    combust: bool = False
-    exalted: bool = False
-    debilitated: bool = False
+    direct_ruling_planets: DirectRulingPlanetsResponse
 
 
 class ChartPlanetResponse(BaseModel):

@@ -77,6 +77,32 @@ export type PositionRow = {
   };
 };
 
+export type PlanetStateFlags = {
+  retrograde: boolean;
+  combust: boolean;
+  exalted: boolean;
+  debilitated: boolean;
+};
+
+export type DirectRulingPlanetItem = {
+  label: string;
+  role: string;
+  planet: string;
+  short_name: string;
+  state_flags: PlanetStateFlags;
+  bhava_house_number: number | null;
+  house_rashi_lord: string | null;
+  house_rashi_lord_short_name: string | null;
+  rashi: string | null;
+  rashi_number: number | null;
+  reason: string | null;
+};
+
+export type DirectRulingPlanets = {
+  items: DirectRulingPlanetItem[];
+  unique_planets: string[];
+};
+
 export type KpChartResponse = {
   name: string;
   birth_datetime: BirthDateTimeRequest;
@@ -84,13 +110,7 @@ export type KpChartResponse = {
   settings: KpChartRequest["settings"];
   cusps: PositionRow[];
   planets: PositionRow[];
-};
-
-export type PlanetStateFlags = {
-  retrograde: boolean;
-  combust: boolean;
-  exalted: boolean;
-  debilitated: boolean;
+  direct_ruling_planets: DirectRulingPlanets;
 };
 
 export type D1ChartPlanet = {

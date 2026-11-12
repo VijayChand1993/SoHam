@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { LoaderCircle, LocateFixed } from "lucide-react";
+import { Info, LoaderCircle, LocateFixed } from "lucide-react";
 
 import {
   BhavaChalitChartResponse,
@@ -13,6 +13,7 @@ import {
   D1ChartPlanet,
   D1ChartResponse,
   D1House,
+  DirectRulingPlanetItem,
   HouseSignificator,
   HouseSignificatorsChartResponse,
   KpChartRequest,
@@ -204,6 +205,17 @@ function formatHouseList(values: number[]) {
   return values.length ? values.join(", ") : "-";
 }
 
+function formatRole(value: string) {
+  return value
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function formatRulingPlanetName(item: DirectRulingPlanetItem) {
+  return `${item.short_name}${item.state_flags.retrograde ? " *" : ""}`;
+}
+
 function formatSignificatorText(item: SignificatorPlanet) {
   return `${item.short_name} ${formatHouseList(item.significations)}`;
 }
@@ -309,6 +321,79 @@ function HouseSignificatorModal({
   );
 }
 
+function RulingPlanetsModal({
+  items,
+  onClose
+}: {
+  items: DirectRulingPlanetItem[];
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-[#18202b]/45 p-4"
+      role="presentation"
+      onMouseDown={onClose}
+    >
+      <div
+        aria-modal="true"
+        className="max-h-[86vh] w-full max-w-[760px] overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
+        role="dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="m-0 text-lg">Ruling Planets</h2>
+            <div className="text-sm text-[#5d6876]">Retrograde planets are marked with *</div>
+          </div>
+          <button
+            aria-label="Close"
+            className="min-h-8 min-w-8 rounded-md border border-[#b9c4cf] bg-white px-2 text-[#314154]"
+            type="button"
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px] border-collapse">
+            <thead>
+              <tr>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">RP</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Planet</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Role</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">House</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Rashi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, index) => (
+                <tr key={`${item.label}-${item.role}-${item.short_name}-${index}`}>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap">
+                    {item.label}
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap text-[#214668]">
+                    {formatRulingPlanetName(item)}
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                    {formatRole(item.role)}
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                    {item.bhava_house_number ?? "-"}
+                  </td>
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                    {item.rashi ?? "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ResultsTable({
   rows,
   onNameClick
@@ -380,6 +465,7 @@ export default function App() {
   const [includeWesternPlanets, setIncludeWesternPlanets] = useState(false);
   const [selectedSignificatorHouse, setSelectedSignificatorHouse] =
     useState<HouseSignificator | null>(null);
+  const [isRulingPlanetsOpen, setIsRulingPlanetsOpen] = useState(false);
   const [isTransitEnabled, setIsTransitEnabled] = useState(false);
   const [isTransitLoading, setIsTransitLoading] = useState(false);
   const [transitChart, setTransitChart] = useState<D1ChartResponse | null>(null);
@@ -536,6 +622,7 @@ export default function App() {
   function handleChartModeChange(nextMode: ChartMode) {
     setChartMode(nextMode);
     setSelectedSignificatorHouse(null);
+    setIsRulingPlanetsOpen(false);
     setStatus("");
     resetTransitOverlay();
   }
@@ -727,6 +814,7 @@ export default function App() {
           instantPrashnaDateTime: instantPrashnaResponse.calculated_datetime
         });
         setSelectedSignificatorHouse(null);
+        setIsRulingPlanetsOpen(false);
         setStatus("Instant Prashna calculated.");
         return;
       }
@@ -752,6 +840,7 @@ export default function App() {
         instantPrashnaDateTime: null
       });
       setSelectedSignificatorHouse(null);
+      setIsRulingPlanetsOpen(false);
       setStatus("Chart calculated.");
     } catch (error) {
       if (chartMode === "instant_prashna") {
@@ -760,6 +849,7 @@ export default function App() {
         setBirthChartResult(null);
       }
       setSelectedSignificatorHouse(null);
+      setIsRulingPlanetsOpen(false);
       setTransitChart(null);
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
     } finally {
@@ -1053,7 +1143,20 @@ export default function App() {
 
               {bhavaChalitChart && (
                 <div>
-                  <h2 className="mb-2.5 text-lg">Bhava Chalit</h2>
+                  <div className="mb-2.5 flex items-center gap-2">
+                    <h2 className="m-0 text-lg">Bhava Chalit</h2>
+                    {chart?.direct_ruling_planets.items.length ? (
+                      <button
+                        aria-label="Direct RPs"
+                        className="inline-grid h-8 w-8 cursor-pointer place-items-center rounded-md border border-[#b9c4cf] bg-white text-[#214668] hover:bg-[#eef3f7]"
+                        title="Direct RPs"
+                        type="button"
+                        onClick={() => setIsRulingPlanetsOpen(true)}
+                      >
+                        <Info aria-hidden="true" className="h-4 w-4" />
+                      </button>
+                    ) : null}
+                  </div>
                   <NorthIndianChart houses={adaptBhavaChalitHouses(bhavaChalitChart)} />
                 </div>
               )}
@@ -1087,6 +1190,12 @@ export default function App() {
         <HouseSignificatorModal
           house={selectedSignificatorHouse}
           onClose={() => setSelectedSignificatorHouse(null)}
+        />
+      )}
+      {isRulingPlanetsOpen && chart?.direct_ruling_planets.items.length && (
+        <RulingPlanetsModal
+          items={chart.direct_ruling_planets.items}
+          onClose={() => setIsRulingPlanetsOpen(false)}
         />
       )}
       </div>

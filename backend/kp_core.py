@@ -1,6 +1,8 @@
 import contextlib
 import io
 from dataclasses import asdict, dataclass
+from datetime import date as calendar_date
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 with contextlib.redirect_stdout(io.StringIO()):
@@ -67,6 +69,35 @@ class PositionRow:
 
 
 @dataclass(frozen=True)
+class PlanetStateFlags:
+    retrograde: bool = False
+    combust: bool = False
+    exalted: bool = False
+    debilitated: bool = False
+
+
+@dataclass(frozen=True)
+class DirectRulingPlanet:
+    label: str
+    role: str
+    planet: str
+    short_name: str
+    state_flags: PlanetStateFlags
+    bhava_house_number: int | None
+    house_rashi_lord: str | None
+    house_rashi_lord_short_name: str | None
+    rashi: str | None
+    rashi_number: int | None
+    reason: str | None = None
+
+
+@dataclass(frozen=True)
+class DirectRulingPlanets:
+    items: list[DirectRulingPlanet]
+    unique_planets: list[str]
+
+
+@dataclass(frozen=True)
 class KpChart:
     name: str
     birth_datetime: BirthDateTime
@@ -74,17 +105,10 @@ class KpChart:
     settings: CalculationSettings
     cusps: list[PositionRow]
     planets: list[PositionRow]
+    direct_ruling_planets: DirectRulingPlanets
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
-
-
-@dataclass(frozen=True)
-class PlanetStateFlags:
-    retrograde: bool = False
-    combust: bool = False
-    exalted: bool = False
-    debilitated: bool = False
 
 
 @dataclass(frozen=True)
@@ -291,6 +315,13 @@ def chart_planet_short_name(planet_id: int | str) -> str:
     return short_names.get(planet_id, chart_planet_name(planet_id))
 
 
+PLANET_ID_BY_NAME = {
+    name: planet
+    for planet in const.SUN_TO_KETU
+    for name in {chart_planet_name(planet), planet_name(planet)}
+}
+
+
 def split_longitude(total_degrees: float) -> tuple[int, float]:
     return drik.dasavarga_from_long(total_degrees)
 
@@ -375,6 +406,18 @@ def _date_time_place(
     )
     jd = utils.julian_day_number(date, time)
     return date, time, place, jd
+
+
+def _current_datetime_for_timezone(timezone_offset: float) -> BirthDateTime:
+    local_datetime = datetime.now(timezone.utc) + timedelta(hours=timezone_offset)
+    return BirthDateTime(
+        year=local_datetime.year,
+        month=local_datetime.month,
+        day=local_datetime.day,
+        hour=local_datetime.hour,
+        minute=local_datetime.minute,
+        second=local_datetime.second,
+    )
 
 
 def _d1_positions(jd: float, place: Any) -> list[tuple[int | str, tuple[int, float]]]:
@@ -549,6 +592,260 @@ def _bhava_placement_context(
     return occupied_house_by_planet, bhava_rashi_lord_by_planet
 
 
+def _bhava_house_context(
+    jd: float,
+    place: Any,
+    settings: CalculationSettings,
+) -> dict[int, tuple[int, str]]:
+    bhava_info = charts._bhaava_madhya_new(
+        jd,
+        place,
+        divisional_chart_factor=1,
+        bhava_madhya_method=settings.house_cusp_method,
+        ascendant_is_middle_of_house=False,
+    )
+
+    house_context = {}
+    for house_number, (_, (start_longitude, _, _), _) in enumerate(
+        bhava_info,
+        start=1,
+    ):
+        sign_index, _ = split_longitude(start_longitude)
+        house_context[house_number] = (sign_index, utils.RAASI_LIST[sign_index])
+
+    return house_context
+
+
+def _planet_id_from_name(name: str) -> int:
+    if name in PLANET_ID_BY_NAME:
+        return PLANET_ID_BY_NAME[name]
+
+    for planet_name_text, planet in PLANET_ID_BY_NAME.items():
+        if name.startswith(planet_name_text) or planet_name_text.startswith(name):
+            return planet
+
+    try:
+        return PLANET_ID_BY_NAME[name]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported ruling planet name: {name}") from exc
+
+
+def _day_lord(birth_datetime: BirthDateTime) -> int:
+    weekday = calendar_date(
+        birth_datetime.year,
+        birth_datetime.month,
+        birth_datetime.day,
+    ).weekday()
+    return {
+        0: const.MOON_ID,
+        1: const.MARS_ID,
+        2: const.MERCURY_ID,
+        3: const.JUPITER_ID,
+        4: const.VENUS_ID,
+        5: const.SATURN_ID,
+        6: const.SUN_ID,
+    }[weekday]
+
+
+def _owned_sign_indexes(planets: list[int]) -> set[int]:
+    owners = set(planets)
+    return {
+        sign_index
+        for sign_index, sign_owner in enumerate(const._house_owners_list)
+        if sign_owner in owners
+    }
+
+
+def _unique_short_names(items: list[DirectRulingPlanet]) -> list[str]:
+    unique_values = []
+    for item in items:
+        if item.short_name not in unique_values:
+            unique_values.append(item.short_name)
+    return unique_values
+
+
+def _transit_position_and_state_flags(
+    location: Location,
+    settings: CalculationSettings,
+) -> tuple[dict[int | str, tuple[int, float]], dict[int, PlanetStateFlags]]:
+    transit_datetime = _current_datetime_for_timezone(location.timezone)
+    _, _, transit_place, transit_jd = _date_time_place(transit_datetime, location)
+    transit_positions = _d1_positions(transit_jd, transit_place)
+    retrograde_planets = set(drik.planets_in_retrograde(transit_jd, transit_place))
+    combust_planets = set(charts.planets_in_combustion(transit_positions))
+
+    transit_position_by_planet = {
+        planet: (sign_index, degree_decimal)
+        for planet, (sign_index, degree_decimal) in transit_positions
+    }
+    transit_state_flags_by_planet = {
+        planet: _planet_state_flags(
+            planet,
+            sign_index,
+            transit_positions,
+            retrograde_planets,
+            combust_planets,
+        )
+        for planet, (sign_index, _) in transit_positions
+        if isinstance(planet, int)
+    }
+    return transit_position_by_planet, transit_state_flags_by_planet
+
+
+def _direct_ruling_planet_item(
+    *,
+    label: str,
+    role: str,
+    planet: int,
+    occupied_house_by_planet: dict[int | str, int],
+    bhava_house_context: dict[int, tuple[int, str]],
+    transit_state_flags_by_planet: dict[int, PlanetStateFlags],
+    reason: str | None = None,
+) -> DirectRulingPlanet:
+    bhava_house_number = occupied_house_by_planet.get(planet)
+    sign_index = None
+    rashi = None
+    house_rashi_lord = None
+
+    if bhava_house_number is not None and bhava_house_number in bhava_house_context:
+        sign_index, rashi = bhava_house_context[bhava_house_number]
+        house_rashi_lord = const._house_owners_list[sign_index]
+
+    return DirectRulingPlanet(
+        label=label,
+        role=role,
+        planet=chart_planet_name(planet),
+        short_name=chart_planet_short_name(planet),
+        state_flags=transit_state_flags_by_planet.get(planet, PlanetStateFlags()),
+        bhava_house_number=bhava_house_number,
+        house_rashi_lord=(
+            chart_planet_name(house_rashi_lord)
+            if house_rashi_lord is not None
+            else None
+        ),
+        house_rashi_lord_short_name=(
+            chart_planet_short_name(house_rashi_lord)
+            if house_rashi_lord is not None
+            else None
+        ),
+        rashi=rashi,
+        rashi_number=sign_index + 1 if sign_index is not None else None,
+        reason=reason,
+    )
+
+
+def _transit_node_ruling_planets(
+    *,
+    base_planets: list[int],
+    location: Location,
+    settings: CalculationSettings,
+    occupied_house_by_planet: dict[int | str, int],
+    bhava_house_context: dict[int, tuple[int, str]],
+    transit_position_by_planet: dict[int | str, tuple[int, float]],
+    transit_state_flags_by_planet: dict[int, PlanetStateFlags],
+) -> list[DirectRulingPlanet]:
+    owned_signs = _owned_sign_indexes(base_planets)
+    if not owned_signs:
+        return []
+
+    items = []
+    for node in (const.RAHU_ID, const.KETU_ID):
+        if node not in transit_position_by_planet:
+            continue
+
+        transit_sign_index, _ = transit_position_by_planet[node]
+        if transit_sign_index not in owned_signs:
+            continue
+
+        sign_owner = const._house_owners_list[transit_sign_index]
+        reason = (
+            f"Transit {chart_planet_name(node)} is in "
+            f"{utils.RAASI_LIST[transit_sign_index]}, ruled by "
+            f"{chart_planet_name(sign_owner)}"
+        )
+        items.append(
+            _direct_ruling_planet_item(
+                label="Node",
+                role="transit_node_in_base_rp_sign",
+                planet=node,
+                occupied_house_by_planet=occupied_house_by_planet,
+                bhava_house_context=bhava_house_context,
+                transit_state_flags_by_planet=transit_state_flags_by_planet,
+                reason=reason,
+            )
+        )
+
+    return items
+
+
+def _direct_ruling_planets(
+    *,
+    birth_datetime: BirthDateTime,
+    location: Location,
+    settings: CalculationSettings,
+    place: Any,
+    jd: float,
+    cusps: list[PositionRow],
+    planets: list[PositionRow],
+    position_by_object: dict[int | str, tuple[int, float]],
+) -> DirectRulingPlanets:
+    asc_row = cusps[0]
+    moon_row = next(
+        (planet for planet in planets if planet.label.startswith("Moon")),
+        None,
+    )
+    if moon_row is None:
+        raise ValueError("Moon KP row is required for ruling planets.")
+
+    occupied_house_by_planet, _ = _bhava_placement_context(
+        jd,
+        place,
+        settings,
+        position_by_object,
+    )
+    bhava_house_context = _bhava_house_context(jd, place, settings)
+    transit_position_by_planet, transit_state_flags_by_planet = (
+        _transit_position_and_state_flags(location, settings)
+    )
+
+    base_specs = [
+        ("RP1", "asc_rashi_lord", _planet_id_from_name(asc_row.kp.rasi_lord)),
+        ("RP2", "moon_star_lord", _planet_id_from_name(moon_row.kp.star_lord)),
+        ("RP3", "moon_rashi_lord", _planet_id_from_name(moon_row.kp.rasi_lord)),
+        ("RP4", "day_lord", _day_lord(birth_datetime)),
+        ("RP5", "moon", const.MOON_ID),
+    ]
+
+    items = [
+        _direct_ruling_planet_item(
+            label=label,
+            role=role,
+            planet=planet,
+            occupied_house_by_planet=occupied_house_by_planet,
+            bhava_house_context=bhava_house_context,
+            transit_state_flags_by_planet=transit_state_flags_by_planet,
+        )
+        for label, role, planet in base_specs
+    ]
+    base_planets = [planet for _, _, planet in base_specs]
+    items.extend(
+        _transit_node_ruling_planets(
+            base_planets=base_planets,
+            location=location,
+            settings=settings,
+            occupied_house_by_planet=occupied_house_by_planet,
+            bhava_house_context=bhava_house_context,
+            transit_position_by_planet=transit_position_by_planet,
+            transit_state_flags_by_planet=transit_state_flags_by_planet,
+        )
+    )
+
+    return DirectRulingPlanets(
+        items=items,
+        unique_planets=_unique_short_names(items),
+    )
+
+
 def _planet_significations(
     planet: int,
     occupied_house_by_planet: dict[int | str, int],
@@ -648,11 +945,15 @@ def calculate_kp_chart(
     planet_kp = charts.get_KP_lords_from_planet_positions(planet_positions)
 
     position_by_object = {
+        planet: (sign, degrees)
+        for planet, (sign, degrees) in planet_positions
+    }
+    absolute_position_by_object = {
         planet: sign * 30 + degrees
         for planet, (sign, degrees) in planet_positions
     }
     planets = [
-        _position_row(planet_name(planet), position_by_object[planet], kp_details)
+        _position_row(planet_name(planet), absolute_position_by_object[planet], kp_details)
         for planet, kp_details in planet_kp.items()
     ]
 
@@ -668,6 +969,17 @@ def calculate_kp_chart(
         kp_details = utils.kp_lords_for_longitude(label, cusp_longitude)[label]
         cusps.append(_position_row(label, cusp_longitude, kp_details))
 
+    direct_ruling_planets = _direct_ruling_planets(
+        birth_datetime=birth_datetime,
+        location=location,
+        settings=settings,
+        place=place,
+        jd=jd,
+        cusps=cusps,
+        planets=planets,
+        position_by_object=position_by_object,
+    )
+
     return KpChart(
         name=name,
         birth_datetime=birth_datetime,
@@ -675,6 +987,7 @@ def calculate_kp_chart(
         settings=settings,
         cusps=cusps,
         planets=planets,
+        direct_ruling_planets=direct_ruling_planets,
     )
 
 
