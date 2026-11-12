@@ -37,6 +37,18 @@ def calculate_d1_chart_response(request: KpChartRequest) -> D1ChartResponse:
     return D1ChartResponse.model_validate(chart.to_dict())
 
 
+def calculate_transit_chart_response(request: KpChartRequest) -> D1ChartResponse:
+    chart = calculate_d1_chart(
+        name=request.name or "Transit",
+        birth_datetime=BirthDateTime(**request.birth_datetime.model_dump()),
+        location=to_core_location(request.location),
+        settings=CalculationSettings(**request.settings.model_dump()),
+    )
+    chart_data = chart.to_dict()
+    chart_data["chart"] = "Transit"
+    return D1ChartResponse.model_validate(chart_data)
+
+
 def calculate_bhava_chalit_chart_response(
     request: KpChartRequest,
 ) -> BhavaChalitChartResponse:

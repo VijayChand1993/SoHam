@@ -129,7 +129,7 @@ class D1HouseResponse(BaseModel):
 
 
 class D1ChartResponse(BaseModel):
-    chart: Literal["D-1"]
+    chart: Literal["D-1", "Transit"]
     chart_style: Literal["north_indian"]
     name: str
     birth_datetime: BirthDateTimeRequest

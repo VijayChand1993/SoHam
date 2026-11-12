@@ -111,7 +111,7 @@ export type D1House = {
 };
 
 export type D1ChartResponse = {
-  chart: "D-1";
+  chart: "D-1" | "Transit";
   chart_style: "north_indian";
   name: string;
   birth_datetime: BirthDateTimeRequest;
@@ -239,6 +239,15 @@ export function calculateKpChart(payload: KpChartRequest): Promise<KpChartRespon
 
 export function calculateD1Chart(payload: KpChartRequest): Promise<D1ChartResponse> {
   return requestJson<D1ChartResponse>("/api/chart/d-1", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateTransitChart(
+  payload: KpChartRequest
+): Promise<D1ChartResponse> {
+  return requestJson<D1ChartResponse>("/api/chart/transit", {
     method: "POST",
     body: JSON.stringify(payload)
   });

@@ -15,6 +15,7 @@ from app.services.kp_calculator import (
     calculate_chart_response,
     calculate_d1_chart_response,
     calculate_house_significators_response,
+    calculate_transit_chart_response,
 )
 from app.services.places import search_places
 
@@ -66,6 +67,16 @@ def kp_chart(request: KpChartRequest) -> KpChartResponse:
 def d1_chart(request: KpChartRequest) -> D1ChartResponse:
     try:
         return calculate_d1_chart_response(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/chart/transit", response_model=D1ChartResponse)
+def transit_chart(request: KpChartRequest) -> D1ChartResponse:
+    try:
+        return calculate_transit_chart_response(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

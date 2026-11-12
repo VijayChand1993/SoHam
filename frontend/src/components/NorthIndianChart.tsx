@@ -15,7 +15,7 @@ const housePlacements: Record<number, HousePlacement> = {
   6: { x: 27, y: 83, align: "center" },
   7: { x: 50, y: 70, align: "center" },
   8: { x: 73, y: 83, align: "center" },
-  9: { x: 87, y: 75, align: "right" },
+  9: { x: 90, y: 70, align: "right" },
   10: { x: 72, y: 50, align: "center" },
   11: { x: 90, y: 20, align: "right" },
   12: { x: 73, y: 10, align: "center" }
@@ -33,18 +33,28 @@ function roundedDegree(degreeDecimal: number) {
   return rounded === 30 ? 0 : rounded;
 }
 
-function planetText(planet: D1ChartPlanet) {
+function planetStateText(planet: D1ChartPlanet) {
   const symbols = stateSymbols
     .filter(([key]) => planet.state_flags[key])
     .map(([, symbol]) => symbol)
     .join("");
 
-  return `${planet.short_name}${symbols ? ` ${symbols}` : ""} ${roundedDegree(
+  return `${planet.short_name}${symbols ? ` ${symbols}` : ""}`;
+}
+
+function planetText(planet: D1ChartPlanet) {
+  return `${planetStateText(planet)} ${roundedDegree(
     planet.degree_decimal
   )}°`;
 }
 
-function HouseContent({ house }: { house: D1House }) {
+function HouseContent({
+  house,
+  transitPlanets = []
+}: {
+  house: D1House;
+  transitPlanets?: D1ChartPlanet[];
+}) {
   const placement = housePlacements[house.house_number];
   const translateX =
     placement.align === "left"
@@ -77,11 +87,30 @@ function HouseContent({ house }: { house: D1House }) {
           </div>
         ))}
       </div>
+      {transitPlanets.length > 0 && (
+        <div className="mt-1 flex flex-wrap justify-center gap-1">
+          {transitPlanets.map((planet) => (
+            <span
+              className="inline-grid min-h-7 min-w-7 place-items-center rounded-full bg-[#b42318] px-1.5 text-[9px] font-bold leading-none text-white shadow-sm sm:min-h-8 sm:min-w-8 sm:text-[10px]"
+              key={`transit-${planet.short_name}-${planet.absolute_longitude}`}
+              title={`Transit ${planet.name}`}
+            >
+              {planetStateText(planet)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
 
-export function NorthIndianChart({ houses }: { houses: D1House[] }) {
+export function NorthIndianChart({
+  houses,
+  transitPlanetsByHouse
+}: {
+  houses: D1House[];
+  transitPlanetsByHouse?: Record<number, D1ChartPlanet[]>;
+}) {
   return (
     <div className="mx-auto w-full max-w-[560px]">
       <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-[#b9a989] bg-[#fffdf7] shadow-sm">
@@ -112,7 +141,11 @@ export function NorthIndianChart({ houses }: { houses: D1House[] }) {
         </svg>
 
         {houses.map((house) => (
-          <HouseContent house={house} key={house.house_number} />
+          <HouseContent
+            house={house}
+            key={house.house_number}
+            transitPlanets={transitPlanetsByHouse?.[house.house_number]}
+          />
         ))}
       </div>
 

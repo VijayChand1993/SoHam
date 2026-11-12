@@ -6,10 +6,13 @@ import {
   calculateD1Chart,
   calculateHouseSignificators,
   calculateKpChart,
+  calculateTransitChart,
+  D1ChartPlanet,
   D1ChartResponse,
   D1House,
   HouseSignificator,
   HouseSignificatorsChartResponse,
+  KpChartRequest,
   KpChartResponse,
   PlaceSearchResult,
   PositionRow,
@@ -86,6 +89,20 @@ function parseDateTime(dateValue: string, timeValue: string) {
   const [hour, minute, second = 0] = timeValue.split(":").map(Number);
 
   return { year, month, day, hour, minute, second };
+}
+
+function currentDateTimeForTimezone(timezone: number) {
+  const now = new Date();
+  const localTime = new Date(now.getTime() + timezone * 60 * 60 * 1000);
+
+  return {
+    year: localTime.getUTCFullYear(),
+    month: localTime.getUTCMonth() + 1,
+    day: localTime.getUTCDate(),
+    hour: localTime.getUTCHours(),
+    minute: localTime.getUTCMinutes(),
+    second: localTime.getUTCSeconds()
+  };
 }
 
 function parseCoordinate(value: string, label: string, min: number, max: number) {
@@ -297,10 +314,15 @@ export default function App() {
     useState<HouseSignificatorsChartResponse | null>(null);
   const [selectedSignificatorHouse, setSelectedSignificatorHouse] =
     useState<HouseSignificator | null>(null);
+  const [isTransitEnabled, setIsTransitEnabled] = useState(false);
+  const [isTransitLoading, setIsTransitLoading] = useState(false);
+  const [transitChart, setTransitChart] = useState<D1ChartResponse | null>(null);
+  const [transitError, setTransitError] = useState("");
   const [status, setStatus] = useState("");
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const latestPlaceSearchId = useRef(0);
+  const latestTransitRequestId = useRef(0);
 
   const selectedPlaceLabel = useMemo(() => {
     if (!selectedPlace) {
@@ -392,23 +414,120 @@ export default function App() {
     };
   }
 
+  function buildChartPayload(): KpChartRequest {
+    return {
+      name,
+      birth_datetime: parseDateTime(date, time),
+      location: getRequestLocation(),
+      settings: {
+        ayanamsa_mode: "KP",
+        house_cusp_method: 3,
+        use_true_nodes: false,
+        include_western_planets: includeWesternPlanets
+      }
+    };
+  }
+
+  function buildTransitPayload(): KpChartRequest {
+    const location = getRequestLocation();
+
+    return {
+      name: "Today's Transit",
+      birth_datetime: currentDateTimeForTimezone(location.timezone),
+      location,
+      settings: {
+        ayanamsa_mode: "KP",
+        house_cusp_method: 3,
+        use_true_nodes: false,
+        include_western_planets: includeWesternPlanets
+      }
+    };
+  }
+
+  async function loadTransitChart() {
+    latestTransitRequestId.current += 1;
+    const requestId = latestTransitRequestId.current;
+    setIsTransitLoading(true);
+    setTransitError("");
+
+    try {
+      const response = await calculateTransitChart(buildTransitPayload());
+      if (latestTransitRequestId.current !== requestId) {
+        return;
+      }
+
+      setTransitChart(response);
+    } catch (error) {
+      if (latestTransitRequestId.current !== requestId) {
+        return;
+      }
+
+      setTransitChart(null);
+      setIsTransitEnabled(false);
+      setTransitError(error instanceof Error ? error.message : "Transit calculation failed.");
+    } finally {
+      if (latestTransitRequestId.current === requestId) {
+        setIsTransitLoading(false);
+      }
+    }
+  }
+
+  function handleTransitToggle(checked: boolean) {
+    setIsTransitEnabled(checked);
+
+    if (!checked) {
+      latestTransitRequestId.current += 1;
+      setTransitChart(null);
+      setTransitError("");
+      setIsTransitLoading(false);
+      return;
+    }
+
+    void loadTransitChart();
+  }
+
+  const transitPlanetsByHouse = useMemo(() => {
+    if (!d1Chart || !transitChart) {
+      return undefined;
+    }
+
+    const natalHouseBySign = new Map(
+      d1Chart.houses.map((house) => [house.sign_number, house.house_number])
+    );
+    const byHouse: Record<number, D1ChartPlanet[]> = {};
+
+    transitChart.houses.forEach((house) => {
+      house.planets.forEach((planet) => {
+        if (planet.short_name === "Asc") {
+          return;
+        }
+
+        const natalHouseNumber = natalHouseBySign.get(planet.sign_number);
+        if (!natalHouseNumber) {
+          return;
+        }
+
+        byHouse[natalHouseNumber] = [
+          ...(byHouse[natalHouseNumber] ?? []),
+          planet
+        ];
+      });
+    });
+
+    return byHouse;
+  }, [d1Chart, transitChart]);
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus("Calculating chart...");
     setIsCalculating(true);
+    setIsTransitEnabled(false);
+    setTransitChart(null);
+    setTransitError("");
+    latestTransitRequestId.current += 1;
 
     try {
-      const payload = {
-        name,
-        birth_datetime: parseDateTime(date, time),
-        location: getRequestLocation(),
-        settings: {
-          ayanamsa_mode: "KP",
-          house_cusp_method: 3,
-          use_true_nodes: false,
-          include_western_planets: includeWesternPlanets
-        }
-      };
+      const payload = buildChartPayload();
       const [
         kpResponse,
         d1Response,
@@ -433,6 +552,7 @@ export default function App() {
       setBhavaChalitChart(null);
       setHouseSignificators(null);
       setSelectedSignificatorHouse(null);
+      setTransitChart(null);
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
     } finally {
       setIsCalculating(false);
@@ -633,8 +753,34 @@ export default function App() {
             <div className="grid gap-6 lg:grid-cols-2">
               {d1Chart && (
                 <div>
-                  <h2 className="mb-2.5 text-lg">Rashi Chart</h2>
-                  <NorthIndianChart houses={d1Chart.houses} />
+                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
+                    <h2 className="m-0 text-lg">Rashi Chart</h2>
+                    <label className="flex items-center gap-2 text-[13px] font-semibold text-[#314154]">
+                      <input
+                        checked={isTransitEnabled}
+                        className="h-4 w-4 accent-[#b42318]"
+                        disabled={isTransitLoading}
+                        type="checkbox"
+                        onChange={(event) => handleTransitToggle(event.target.checked)}
+                      />
+                      Today's Transit
+                      {isTransitLoading && (
+                        <span
+                          aria-label="Loading transit"
+                          className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-[#f3c2bd] border-t-[#b42318]"
+                        />
+                      )}
+                    </label>
+                  </div>
+                  <NorthIndianChart
+                    houses={d1Chart.houses}
+                    transitPlanetsByHouse={
+                      isTransitEnabled ? transitPlanetsByHouse : undefined
+                    }
+                  />
+                  {transitError && (
+                    <div className="mt-2 text-sm text-[#b42318]">{transitError}</div>
+                  )}
                 </div>
               )}
 
