@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta, timezone
+
 from kp_core import (
     BirthDateTime,
     CalculationSettings,
@@ -9,12 +11,27 @@ from kp_core import (
 
 from app.models import (
     BhavaChalitChartResponse,
+    BirthDateTimeRequest,
     D1ChartResponse,
     HouseSignificatorsChartResponse,
+    InstantPrashnaRequest,
+    InstantPrashnaResponse,
     KpChartRequest,
     KpChartResponse,
 )
 from app.services.places import to_core_location
+
+
+def _current_datetime_for_timezone(timezone_offset: float) -> BirthDateTimeRequest:
+    local_datetime = datetime.now(timezone.utc) + timedelta(hours=timezone_offset)
+    return BirthDateTimeRequest(
+        year=local_datetime.year,
+        month=local_datetime.month,
+        day=local_datetime.day,
+        hour=local_datetime.hour,
+        minute=local_datetime.minute,
+        second=local_datetime.second,
+    )
 
 
 def calculate_chart_response(request: KpChartRequest) -> KpChartResponse:
@@ -71,3 +88,26 @@ def calculate_house_significators_response(
         settings=CalculationSettings(**request.settings.model_dump()),
     )
     return HouseSignificatorsChartResponse.model_validate(chart.to_dict())
+
+
+def calculate_instant_prashna_response(
+    request: InstantPrashnaRequest,
+) -> InstantPrashnaResponse:
+    calculated_datetime = _current_datetime_for_timezone(request.location.timezone)
+    chart_request = KpChartRequest(
+        name="Instant Prashna",
+        birth_datetime=calculated_datetime,
+        location=request.location,
+        settings=request.settings,
+    )
+
+    return InstantPrashnaResponse(
+        mode="instant_prashna",
+        calculated_datetime=calculated_datetime,
+        location=request.location,
+        settings=request.settings,
+        kp_chart=calculate_chart_response(chart_request),
+        d1_chart=calculate_d1_chart_response(chart_request),
+        bhava_chalit_chart=calculate_bhava_chalit_chart_response(chart_request),
+        house_significators=calculate_house_significators_response(chart_request),
+    )

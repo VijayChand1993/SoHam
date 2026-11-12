@@ -27,6 +27,21 @@ KP_CHART_REQUEST_EXAMPLE = {
     },
 }
 
+INSTANT_PRASHNA_REQUEST_EXAMPLE = {
+    "location": {
+        "name": "Pithoragarh",
+        "latitude": 29.418,
+        "longitude": 80.207,
+        "timezone": 5.5,
+    },
+    "settings": {
+        "ayanamsa_mode": "KP",
+        "house_cusp_method": 3,
+        "use_true_nodes": False,
+        "include_western_planets": False,
+    },
+}
+
 
 class BirthDateTimeRequest(BaseModel):
     year: int = Field(..., ge=1)
@@ -57,6 +72,17 @@ class KpChartRequest(BaseModel):
 
     name: str = ""
     birth_datetime: BirthDateTimeRequest
+    location: LocationRequest
+    settings: CalculationSettingsRequest = Field(
+        default_factory=CalculationSettingsRequest
+    )
+
+
+class InstantPrashnaRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={"example": INSTANT_PRASHNA_REQUEST_EXAMPLE}
+    )
+
     location: LocationRequest
     settings: CalculationSettingsRequest = Field(
         default_factory=CalculationSettingsRequest
@@ -222,6 +248,17 @@ class HouseSignificatorsChartResponse(BaseModel):
     houses: list[HouseSignificatorResponse]
 
 
+class InstantPrashnaResponse(BaseModel):
+    mode: Literal["instant_prashna"]
+    calculated_datetime: BirthDateTimeRequest
+    location: LocationRequest
+    settings: CalculationSettingsRequest
+    kp_chart: KpChartResponse
+    d1_chart: D1ChartResponse
+    bhava_chalit_chart: BhavaChalitChartResponse
+    house_significators: HouseSignificatorsChartResponse
+
+
 class PlaceSearchResult(BaseModel):
     display_name: str
     city: str = ""
@@ -238,6 +275,13 @@ class PlaceSearchResponse(BaseModel):
     query: str
     count: int
     results: list[PlaceSearchResult]
+
+
+class PlaceReverseResponse(BaseModel):
+    latitude: float
+    longitude: float
+    result: PlaceSearchResult | None
+    distance_km: float | None
 
 
 class HealthResponse(BaseModel):

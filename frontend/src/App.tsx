@@ -1,12 +1,15 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { LoaderCircle, LocateFixed } from "lucide-react";
 
 import {
   BhavaChalitChartResponse,
   calculateBhavaChalitChart,
   calculateD1Chart,
   calculateHouseSignificators,
+  calculateInstantPrashna,
   calculateKpChart,
   calculateTransitChart,
+  BirthDateTimeRequest,
   D1ChartPlanet,
   D1ChartResponse,
   D1House,
@@ -16,6 +19,7 @@ import {
   KpChartResponse,
   PlaceSearchResult,
   PositionRow,
+  reversePlace,
   SignificatorPlanet,
   searchPlaces
 } from "./api/kpClient";
@@ -25,6 +29,39 @@ const defaultDate = "1993-04-02";
 const defaultTime = "01:15:00";
 
 type LocationMode = "place" | "coordinates";
+type ChartMode = "birth_chart" | "instant_prashna";
+type ChartResult = {
+  chart: KpChartResponse;
+  d1Chart: D1ChartResponse;
+  bhavaChalitChart: BhavaChalitChartResponse;
+  houseSignificators: HouseSignificatorsChartResponse;
+  instantPrashnaDateTime: BirthDateTimeRequest | null;
+};
+
+function CurrentLocationButton({
+  isLoading,
+  onClick
+}: {
+  isLoading: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      aria-label="Use current location"
+      className="inline-grid min-h-10 min-w-10 cursor-pointer place-items-center rounded-md border border-[#214668] bg-white text-[#214668] disabled:cursor-wait disabled:opacity-65"
+      disabled={isLoading}
+      title={isLoading ? "Detecting current location" : "Use current location"}
+      type="button"
+      onClick={onClick}
+    >
+      {isLoading ? (
+        <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+      ) : (
+        <LocateFixed aria-hidden="true" className="h-4 w-4" />
+      )}
+    </button>
+  );
+}
 
 const defaultPlaces: PlaceSearchResult[] = [
   {
@@ -103,6 +140,35 @@ function currentDateTimeForTimezone(timezone: number) {
     minute: localTime.getUTCMinutes(),
     second: localTime.getUTCSeconds()
   };
+}
+
+function formatCalculatedDateTime(
+  dateTime: BirthDateTimeRequest,
+  timezoneOffset: number
+) {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "UTC"
+  });
+  const displayDate = new Date(
+    Date.UTC(
+      dateTime.year,
+      dateTime.month - 1,
+      dateTime.day,
+      dateTime.hour,
+      dateTime.minute,
+      dateTime.second
+    )
+  );
+  const timezoneLabel = `UTC${timezoneOffset >= 0 ? "+" : ""}${timezoneOffset}`;
+
+  return `${formatter.format(displayDate)} ${timezoneLabel}`;
 }
 
 function parseCoordinate(value: string, label: string, min: number, max: number) {
@@ -295,6 +361,12 @@ function ResultsTable({
 }
 
 export default function App() {
+  const [chartMode, setChartMode] = useState<ChartMode>("birth_chart");
+  const [birthChartResult, setBirthChartResult] = useState<ChartResult | null>(
+    null
+  );
+  const [instantPrashnaResult, setInstantPrashnaResult] =
+    useState<ChartResult | null>(null);
   const [name, setName] = useState("VJ");
   const [date, setDate] = useState(defaultDate);
   const [time, setTime] = useState(defaultTime);
@@ -306,12 +378,6 @@ export default function App() {
   const [manualLongitude, setManualLongitude] = useState("80.207");
   const [manualTimezone, setManualTimezone] = useState("5.5");
   const [includeWesternPlanets, setIncludeWesternPlanets] = useState(false);
-  const [chart, setChart] = useState<KpChartResponse | null>(null);
-  const [d1Chart, setD1Chart] = useState<D1ChartResponse | null>(null);
-  const [bhavaChalitChart, setBhavaChalitChart] =
-    useState<BhavaChalitChartResponse | null>(null);
-  const [houseSignificators, setHouseSignificators] =
-    useState<HouseSignificatorsChartResponse | null>(null);
   const [selectedSignificatorHouse, setSelectedSignificatorHouse] =
     useState<HouseSignificator | null>(null);
   const [isTransitEnabled, setIsTransitEnabled] = useState(false);
@@ -320,9 +386,18 @@ export default function App() {
   const [transitError, setTransitError] = useState("");
   const [status, setStatus] = useState("");
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(false);
   const [isCalculating, setIsCalculating] = useState(false);
   const latestPlaceSearchId = useRef(0);
   const latestTransitRequestId = useRef(0);
+  const activeResult =
+    chartMode === "instant_prashna" ? instantPrashnaResult : birthChartResult;
+  const chart = activeResult?.chart ?? null;
+  const d1Chart = activeResult?.d1Chart ?? null;
+  const bhavaChalitChart = activeResult?.bhavaChalitChart ?? null;
+  const houseSignificators = activeResult?.houseSignificators ?? null;
+  const instantPrashnaDateTime =
+    activeResult?.instantPrashnaDateTime ?? null;
 
   const selectedPlaceLabel = useMemo(() => {
     if (!selectedPlace) {
@@ -414,17 +489,21 @@ export default function App() {
     };
   }
 
+  function buildSettings() {
+    return {
+      ayanamsa_mode: "KP",
+      house_cusp_method: 3,
+      use_true_nodes: false,
+      include_western_planets: includeWesternPlanets
+    };
+  }
+
   function buildChartPayload(): KpChartRequest {
     return {
       name,
       birth_datetime: parseDateTime(date, time),
       location: getRequestLocation(),
-      settings: {
-        ayanamsa_mode: "KP",
-        house_cusp_method: 3,
-        use_true_nodes: false,
-        include_western_planets: includeWesternPlanets
-      }
+      settings: buildSettings()
     };
   }
 
@@ -435,13 +514,120 @@ export default function App() {
       name: "Today's Transit",
       birth_datetime: currentDateTimeForTimezone(location.timezone),
       location,
-      settings: {
-        ayanamsa_mode: "KP",
-        house_cusp_method: 3,
-        use_true_nodes: false,
-        include_western_planets: includeWesternPlanets
-      }
+      settings: buildSettings()
     };
+  }
+
+  function buildInstantPrashnaPayload() {
+    return {
+      location: getRequestLocation(),
+      settings: buildSettings()
+    };
+  }
+
+  function resetTransitOverlay() {
+    latestTransitRequestId.current += 1;
+    setIsTransitEnabled(false);
+    setTransitChart(null);
+    setTransitError("");
+    setIsTransitLoading(false);
+  }
+
+  function handleChartModeChange(nextMode: ChartMode) {
+    setChartMode(nextMode);
+    setSelectedSignificatorHouse(null);
+    setStatus("");
+    resetTransitOverlay();
+  }
+
+  function geolocationErrorMessage(error: GeolocationPositionError) {
+    if (error.code === error.PERMISSION_DENIED) {
+      return "Location permission denied.";
+    }
+
+    if (error.code === error.TIMEOUT) {
+      return "Unable to detect location before timeout.";
+    }
+
+    return "Unable to detect location.";
+  }
+
+  function fillManualCoordinates(
+    latitude: number,
+    longitude: number,
+    timezone: number
+  ) {
+    setManualLatitude(latitude.toFixed(6));
+    setManualLongitude(longitude.toFixed(6));
+    setManualTimezone(String(timezone));
+  }
+
+  async function applyDetectedLocation(position: GeolocationPosition) {
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    const browserTimezone = -new Date().getTimezoneOffset() / 60;
+
+    fillManualCoordinates(latitude, longitude, browserTimezone);
+
+    if (locationMode === "coordinates") {
+      setStatus("Current location filled.");
+      return;
+    }
+
+    try {
+      const response = await reversePlace(latitude, longitude);
+      if (!response.result) {
+        setSelectedPlace(null);
+        setPlaceResults([]);
+        setStatus("Current coordinates detected, but no nearby place was found.");
+        return;
+      }
+
+      setSelectedPlace(response.result);
+      setPlaceQuery(response.result.display_name);
+      setPlaceResults([]);
+
+      const distanceText =
+        response.distance_km === null
+          ? ""
+          : ` (${response.distance_km.toFixed(1)} km away)`;
+      setStatus(`Nearest place selected: ${response.result.display_name}${distanceText}.`);
+    } catch (error) {
+      setSelectedPlace(null);
+      setPlaceResults([]);
+      setStatus(
+        error instanceof Error
+          ? `Current coordinates detected, but nearest place lookup failed: ${error.message}`
+          : "Current coordinates detected, but nearest place lookup failed."
+      );
+    }
+  }
+
+  function handleUseCurrentLocation() {
+    if (!navigator.geolocation) {
+      setStatus("Browser location is not available.");
+      return;
+    }
+
+    setIsDetectingLocation(true);
+    setStatus("Detecting current location...");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        void applyDetectedLocation(position).finally(() => {
+          setIsDetectingLocation(false);
+        });
+      },
+      (error) => {
+        setStatus(geolocationErrorMessage(error));
+        setIsDetectingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 0,
+        timeout: 10000
+      }
+    );
   }
 
   async function loadTransitChart() {
@@ -519,14 +705,32 @@ export default function App() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setStatus("Calculating chart...");
+    setStatus(
+      chartMode === "instant_prashna"
+        ? "Calculating Instant Prashna..."
+        : "Calculating chart..."
+    );
     setIsCalculating(true);
-    setIsTransitEnabled(false);
-    setTransitChart(null);
-    setTransitError("");
-    latestTransitRequestId.current += 1;
+    resetTransitOverlay();
 
     try {
+      if (chartMode === "instant_prashna") {
+        const instantPrashnaResponse = await calculateInstantPrashna(
+          buildInstantPrashnaPayload()
+        );
+
+        setInstantPrashnaResult({
+          chart: instantPrashnaResponse.kp_chart,
+          d1Chart: instantPrashnaResponse.d1_chart,
+          bhavaChalitChart: instantPrashnaResponse.bhava_chalit_chart,
+          houseSignificators: instantPrashnaResponse.house_significators,
+          instantPrashnaDateTime: instantPrashnaResponse.calculated_datetime
+        });
+        setSelectedSignificatorHouse(null);
+        setStatus("Instant Prashna calculated.");
+        return;
+      }
+
       const payload = buildChartPayload();
       const [
         kpResponse,
@@ -540,17 +744,21 @@ export default function App() {
         calculateHouseSignificators(payload)
       ]);
 
-      setChart(kpResponse);
-      setD1Chart(d1Response);
-      setBhavaChalitChart(bhavaChalitResponse);
-      setHouseSignificators(houseSignificatorsResponse);
+      setBirthChartResult({
+        chart: kpResponse,
+        d1Chart: d1Response,
+        bhavaChalitChart: bhavaChalitResponse,
+        houseSignificators: houseSignificatorsResponse,
+        instantPrashnaDateTime: null
+      });
       setSelectedSignificatorHouse(null);
       setStatus("Chart calculated.");
     } catch (error) {
-      setChart(null);
-      setD1Chart(null);
-      setBhavaChalitChart(null);
-      setHouseSignificators(null);
+      if (chartMode === "instant_prashna") {
+        setInstantPrashnaResult(null);
+      } else {
+        setBirthChartResult(null);
+      }
       setSelectedSignificatorHouse(null);
       setTransitChart(null);
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
@@ -569,35 +777,68 @@ export default function App() {
         </div>
 
         <form className="grid gap-3.5" onSubmit={handleSubmit}>
-          <div className="grid gap-3.5 md:grid-cols-3">
-            <label className="grid gap-1.5 text-[13px] font-semibold">
-              Name
-              <input
-                className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-              />
-            </label>
-            <label className="grid gap-1.5 text-[13px] font-semibold">
-              Date
-              <input
-                className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                type="date"
-                value={date}
-                onChange={(event) => setDate(event.target.value)}
-              />
-            </label>
-            <label className="grid gap-1.5 text-[13px] font-semibold">
-              Time
-              <input
-                className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                type="time"
-                step="1"
-                value={time}
-                onChange={(event) => setTime(event.target.value)}
-              />
-            </label>
+          <div
+            className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-[3px] sm:w-[380px]"
+            role="tablist"
+            aria-label="Chart calculation mode"
+          >
+            <button
+              aria-selected={chartMode === "birth_chart"}
+              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+                chartMode === "birth_chart"
+                  ? "border border-[#b9c4cf] bg-white text-[#18202b]"
+                  : "border border-transparent bg-transparent"
+              }`}
+              type="button"
+              onClick={() => handleChartModeChange("birth_chart")}
+            >
+              Birth Chart
+            </button>
+            <button
+              aria-selected={chartMode === "instant_prashna"}
+              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+                chartMode === "instant_prashna"
+                  ? "border border-[#b9c4cf] bg-white text-[#18202b]"
+                  : "border border-transparent bg-transparent"
+              }`}
+              type="button"
+              onClick={() => handleChartModeChange("instant_prashna")}
+            >
+              Instant Prashna
+            </button>
           </div>
+
+          {chartMode === "birth_chart" && (
+            <div className="grid gap-3.5 md:grid-cols-3">
+              <label className="grid gap-1.5 text-[13px] font-semibold">
+                Name
+                <input
+                  className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-1.5 text-[13px] font-semibold">
+                Date
+                <input
+                  className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                  type="date"
+                  value={date}
+                  onChange={(event) => setDate(event.target.value)}
+                />
+              </label>
+              <label className="grid gap-1.5 text-[13px] font-semibold">
+                Time
+                <input
+                  className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                  type="time"
+                  step="1"
+                  value={time}
+                  onChange={(event) => setTime(event.target.value)}
+                />
+              </label>
+            </div>
+          )}
 
           <div
             className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-[3px] sm:w-[340px]"
@@ -635,22 +876,28 @@ export default function App() {
               <>
                 <label className="grid gap-1.5 text-[13px] font-semibold">
                   Place
-                  <span className="relative">
-                    <input
-                      className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2 pr-9"
-                      value={placeQuery}
-                      onChange={(event) => {
-                        setPlaceQuery(event.target.value);
-                        setSelectedPlace(null);
-                        setStatus("");
-                      }}
-                    />
-                    {isSearchingPlaces && (
-                      <span
-                        aria-label="Searching places"
-                        className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-[#cbd5df] border-t-[#214668]"
+                  <span className="flex gap-2">
+                    <span className="relative grow">
+                      <input
+                        className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2 pr-9"
+                        value={placeQuery}
+                        onChange={(event) => {
+                          setPlaceQuery(event.target.value);
+                          setSelectedPlace(null);
+                          setStatus("");
+                        }}
                       />
-                    )}
+                      {isSearchingPlaces && (
+                        <span
+                          aria-label="Searching places"
+                          className="pointer-events-none absolute top-1/2 right-3 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-[#cbd5df] border-t-[#214668]"
+                        />
+                      )}
+                    </span>
+                    <CurrentLocationButton
+                      isLoading={isDetectingLocation}
+                      onClick={handleUseCurrentLocation}
+                    />
                   </span>
                 </label>
 
@@ -678,49 +925,57 @@ export default function App() {
                 </div>
               </>
             ) : (
-              <div className="grid gap-3.5 md:grid-cols-3">
-                <label className="grid gap-1.5 text-[13px] font-semibold">
-                  Latitude
-                  <input
-                    className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                    inputMode="decimal"
-                    max="90"
-                    min="-90"
-                    required
-                    step="any"
-                    type="number"
-                    value={manualLatitude}
-                    onChange={(event) => setManualLatitude(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-[13px] font-semibold">
-                  Longitude
-                  <input
-                    className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                    inputMode="decimal"
-                    max="180"
-                    min="-180"
-                    required
-                    step="any"
-                    type="number"
-                    value={manualLongitude}
-                    onChange={(event) => setManualLongitude(event.target.value)}
-                  />
-                </label>
-                <label className="grid gap-1.5 text-[13px] font-semibold">
-                  Timezone
-                  <input
-                    className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
-                    inputMode="decimal"
-                    max="14"
-                    min="-14"
-                    required
-                    step="any"
-                    type="number"
-                    value={manualTimezone}
-                    onChange={(event) => setManualTimezone(event.target.value)}
-                  />
-                </label>
+              <div className="grid gap-3.5">
+                <div className="grid gap-3.5 md:grid-cols-3">
+                  <label className="grid gap-1.5 text-[13px] font-semibold">
+                    Latitude
+                    <input
+                      className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                      inputMode="decimal"
+                      max="90"
+                      min="-90"
+                      required
+                      step="any"
+                      type="number"
+                      value={manualLatitude}
+                      onChange={(event) => setManualLatitude(event.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-[13px] font-semibold">
+                    Longitude
+                    <input
+                      className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                      inputMode="decimal"
+                      max="180"
+                      min="-180"
+                      required
+                      step="any"
+                      type="number"
+                      value={manualLongitude}
+                      onChange={(event) => setManualLongitude(event.target.value)}
+                    />
+                  </label>
+                  <label className="grid gap-1.5 text-[13px] font-semibold">
+                    Timezone
+                    <span className="flex gap-2">
+                      <input
+                        className="min-h-10 w-full rounded-md border border-[#b9c4cf] px-2.5 py-2"
+                        inputMode="decimal"
+                        max="14"
+                        min="-14"
+                        required
+                        step="any"
+                        type="number"
+                        value={manualTimezone}
+                        onChange={(event) => setManualTimezone(event.target.value)}
+                      />
+                      <CurrentLocationButton
+                        isLoading={isDetectingLocation}
+                        onClick={handleUseCurrentLocation}
+                      />
+                    </span>
+                  </label>
+                </div>
               </div>
             )}
           </div>
@@ -740,7 +995,9 @@ export default function App() {
             type="submit"
             disabled={isCalculating}
           >
-            Calculate
+            {chartMode === "instant_prashna"
+              ? "Calculate Instant Prashna"
+              : "Calculate"}
           </button>
         </form>
 
@@ -749,11 +1006,21 @@ export default function App() {
 
       {(chart || d1Chart || bhavaChalitChart) && (
         <section className="grid gap-6 rounded-lg border border-[#d8e0e8] bg-white p-5">
+          {chartMode === "instant_prashna" && instantPrashnaDateTime && chart && (
+            <div className="rounded-md border border-[#d8e0e8] bg-[#f5f7fa] px-3 py-2 text-sm text-[#5d6876]">
+              Instant Prashna calculated for:{" "}
+              {formatCalculatedDateTime(
+                instantPrashnaDateTime,
+                chart.location.timezone
+              )}
+            </div>
+          )}
+
           {(d1Chart || bhavaChalitChart) && (
             <div className="grid gap-6 lg:grid-cols-2">
               {d1Chart && (
                 <div>
-                  <div className="mb-2.5 flex flex-wrap items-center justify-between gap-3">
+                  <div className="mb-2.5 flex flex-wrap items-center gap-3">
                     <h2 className="m-0 text-lg">Rashi Chart</h2>
                     <label className="flex items-center gap-2 text-[13px] font-semibold text-[#314154]">
                       <input

@@ -6,8 +6,11 @@ from app.models import (
     D1ChartResponse,
     HealthResponse,
     HouseSignificatorsChartResponse,
+    InstantPrashnaRequest,
+    InstantPrashnaResponse,
     KpChartRequest,
     KpChartResponse,
+    PlaceReverseResponse,
     PlaceSearchResponse,
 )
 from app.services.kp_calculator import (
@@ -15,9 +18,10 @@ from app.services.kp_calculator import (
     calculate_chart_response,
     calculate_d1_chart_response,
     calculate_house_significators_response,
+    calculate_instant_prashna_response,
     calculate_transit_chart_response,
 )
-from app.services.places import search_places
+from app.services.places import nearest_place, search_places
 
 app = FastAPI(title="SoHam API")
 
@@ -51,6 +55,24 @@ def places(
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return PlaceSearchResponse(query=q, count=len(results), results=results)
+
+
+@app.get("/api/places/reverse", response_model=PlaceReverseResponse)
+def reverse_place(
+    lat: float = Query(..., ge=-90, le=90),
+    lon: float = Query(..., ge=-180, le=180),
+) -> PlaceReverseResponse:
+    try:
+        result, distance_km = nearest_place(lat, lon)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return PlaceReverseResponse(
+        latitude=lat,
+        longitude=lon,
+        result=result,
+        distance_km=round(distance_km, 3),
+    )
 
 
 @app.post("/api/kp-chart", response_model=KpChartResponse)
@@ -97,6 +119,16 @@ def bhava_chalit_chart(request: KpChartRequest) -> BhavaChalitChartResponse:
 def house_significators(request: KpChartRequest) -> HouseSignificatorsChartResponse:
     try:
         return calculate_house_significators_response(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/kp/instant-prashna", response_model=InstantPrashnaResponse)
+def instant_prashna(request: InstantPrashnaRequest) -> InstantPrashnaResponse:
+    try:
+        return calculate_instant_prashna_response(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

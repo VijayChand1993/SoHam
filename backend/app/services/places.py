@@ -1,5 +1,6 @@
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
+from math import asin, cos, radians, sin, sqrt
 from threading import Lock
 
 from jhora import const, place_db
@@ -47,6 +48,24 @@ def _record_to_place_result(record: dict) -> PlaceSearchResult:
     )
 
 
+def _distance_km(
+    latitude: float,
+    longitude: float,
+    other_latitude: float,
+    other_longitude: float,
+) -> float:
+    earth_radius_km = 6371.0088
+    lat1 = radians(latitude)
+    lat2 = radians(other_latitude)
+    delta_lat = radians(other_latitude - latitude)
+    delta_lon = radians(other_longitude - longitude)
+    haversine = (
+        sin(delta_lat / 2) ** 2
+        + cos(lat1) * cos(lat2) * sin(delta_lon / 2) ** 2
+    )
+    return 2 * earth_radius_km * asin(sqrt(haversine))
+
+
 def search_places(query: str, limit: int = 10) -> list[PlaceSearchResult]:
     normalized_query = query.strip()
     if not normalized_query:
@@ -83,6 +102,39 @@ def search_places(query: str, limit: int = 10) -> list[PlaceSearchResult]:
             break
 
     return results
+
+
+def nearest_place(latitude: float, longitude: float) -> tuple[PlaceSearchResult, float]:
+    _ensure_place_database_loaded()
+
+    records = getattr(place_db, "_backend").records
+    if not records:
+        raise ValueError("Place database is not loaded.")
+
+    nearest_record = None
+    nearest_distance = float("inf")
+
+    for record in records:
+        try:
+            record_latitude = float(record["latitude"])
+            record_longitude = float(record["longitude"])
+        except (KeyError, TypeError, ValueError):
+            continue
+
+        distance = _distance_km(
+            latitude,
+            longitude,
+            record_latitude,
+            record_longitude,
+        )
+        if distance < nearest_distance:
+            nearest_record = record
+            nearest_distance = distance
+
+    if nearest_record is None:
+        raise ValueError("No place records are available.")
+
+    return _record_to_place_result(nearest_record), nearest_distance
 
 
 def to_core_location(location: LocationRequest) -> Location:

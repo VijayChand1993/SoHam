@@ -18,6 +18,13 @@ export type PlaceSearchResponse = {
   results: PlaceSearchResult[];
 };
 
+export type PlaceReverseResponse = {
+  latitude: number;
+  longitude: number;
+  result: PlaceSearchResult | null;
+  distance_km: number | null;
+};
+
 export type BirthDateTimeRequest = {
   year: number;
   month: number;
@@ -45,6 +52,11 @@ export type KpChartRequest = {
     use_true_nodes: boolean;
     include_western_planets: boolean;
   };
+};
+
+export type InstantPrashnaRequest = {
+  location: LocationRequest;
+  settings: KpChartRequest["settings"];
 };
 
 export type PositionRow = {
@@ -204,6 +216,17 @@ export type HouseSignificatorsChartResponse = {
   houses: HouseSignificator[];
 };
 
+export type InstantPrashnaResponse = {
+  mode: "instant_prashna";
+  calculated_datetime: BirthDateTimeRequest;
+  location: Required<LocationRequest>;
+  settings: KpChartRequest["settings"];
+  kp_chart: KpChartResponse;
+  d1_chart: D1ChartResponse;
+  bhava_chalit_chart: BhavaChalitChartResponse;
+  house_significators: HouseSignificatorsChartResponse;
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -228,6 +251,20 @@ export function searchPlaces(query: string, limit = 8): Promise<PlaceSearchRespo
   });
 
   return requestJson<PlaceSearchResponse>(`/api/places?${params.toString()}`);
+}
+
+export function reversePlace(
+  latitude: number,
+  longitude: number
+): Promise<PlaceReverseResponse> {
+  const params = new URLSearchParams({
+    lat: String(latitude),
+    lon: String(longitude)
+  });
+
+  return requestJson<PlaceReverseResponse>(
+    `/api/places/reverse?${params.toString()}`
+  );
 }
 
 export function calculateKpChart(payload: KpChartRequest): Promise<KpChartResponse> {
@@ -266,6 +303,15 @@ export function calculateHouseSignificators(
   payload: KpChartRequest
 ): Promise<HouseSignificatorsChartResponse> {
   return requestJson<HouseSignificatorsChartResponse>("/api/kp/house-significators", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateInstantPrashna(
+  payload: InstantPrashnaRequest
+): Promise<InstantPrashnaResponse> {
+  return requestJson<InstantPrashnaResponse>("/api/kp/instant-prashna", {
     method: "POST",
     body: JSON.stringify(payload)
   });
