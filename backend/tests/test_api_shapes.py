@@ -71,7 +71,7 @@ def test_kp_chart_shape(
     post_json: Callable[[str, dict[str, Any]], dict[str, Any]],
     vj_chart_payload: dict[str, Any],
 ) -> None:
-    data = post_json("/api/kp-chart", vj_chart_payload)
+    data = post_json("/api/kp-details", vj_chart_payload)
 
     assert_request_echo(data, vj_chart_payload)
     assert len(data["cusps"]) == 12

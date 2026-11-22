@@ -104,7 +104,7 @@ class Test001:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", vj_chart_payload)
+        data = post_json("/api/kp-details", vj_chart_payload)
 
         expected_cusps = [
             ("House-1", "♈Aries", "13:22:28", "Mars♂", "Venus♀", "Venus♀", "Venus♀"),
@@ -142,7 +142,7 @@ class Test001:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", vj_chart_payload)
+        data = post_json("/api/kp-details", vj_chart_payload)
 
         expected_planets = [
             ("Ascendant", "♈Aries", "13:22:28", "Mars♂", "Venus♀", "Venus♀", "Venus♀"),
@@ -181,7 +181,7 @@ class Test002:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", vijay_chand_paid_reference_payload)
+        data = post_json("/api/kp-details", vijay_chand_paid_reference_payload)
 
         expected_cusps = [
             ("House-1", "♐︎Sagittarius", "18:08:40", "Jupiter♃", "Venus♀", "Rahu☊", "Rahu☊"),
@@ -218,7 +218,7 @@ class Test002:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", vijay_chand_paid_reference_payload)
+        data = post_json("/api/kp-details", vijay_chand_paid_reference_payload)
 
         expected_planets = [
             ("Sun☉", "♓︎Pisces", "18:24:48", "Jupiter♃", "Mercury☿", "Mercury☿", "Saturn♄"),
@@ -255,7 +255,7 @@ class Test003:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", test003_paid_reference_payload)
+        data = post_json("/api/kp-details", test003_paid_reference_payload)
 
         expected_cusps = [
             ("House-1", "♋︎Cancer", "08:25:37", "Moon☾", "Saturn♄", "Venus♀", "Venus♀"),
@@ -292,7 +292,7 @@ class Test003:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", test003_paid_reference_payload)
+        data = post_json("/api/kp-details", test003_paid_reference_payload)
 
         expected_planets = [
             ("Sun☉", "♏︎Scorpio", "00:31:29", "Mars♂", "Jupiter♃", "Moon☾", "Sun☉"),
@@ -329,7 +329,7 @@ class Test004:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", test004_paid_reference_payload)
+        data = post_json("/api/kp-details", test004_paid_reference_payload)
 
         expected_cusps = [
             ("House-1", "♏︎Scorpio", "07:27:38", "Mars♂", "Saturn♄", "Ketu☋", "Venus♀"),
@@ -366,7 +366,7 @@ class Test004:
         ],
         show_kp_mismatches: bool,
     ) -> None:
-        data = post_json("/api/kp-chart", test004_paid_reference_payload)
+        data = post_json("/api/kp-details", test004_paid_reference_payload)
 
         expected_planets = [
             ("Sun☉", "♋︎Cancer", "12:07:53", "Moon☾", "Saturn♄", "Mars♂", "Mars♂"),

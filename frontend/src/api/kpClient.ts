@@ -288,7 +288,7 @@ export function reversePlace(
 }
 
 export function calculateKpChart(payload: KpChartRequest): Promise<KpChartResponse> {
-  return requestJson<KpChartResponse>("/api/kp-chart", {
+  return requestJson<KpChartResponse>("/api/kp-details", {
     method: "POST",
     body: JSON.stringify(payload)
   });

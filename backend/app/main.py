@@ -75,7 +75,7 @@ def reverse_place(
     )
 
 
-@app.post("/api/kp-chart", response_model=KpChartResponse)
+@app.post("/api/kp-details", response_model=KpChartResponse)
 def kp_chart(request: KpChartRequest) -> KpChartResponse:
     try:
         return calculate_chart_response(request)

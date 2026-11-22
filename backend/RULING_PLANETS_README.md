@@ -7,7 +7,7 @@ This document explains the logic used to calculate `direct_ruling_planets` in th
 The calculation is returned as part of:
 
 ```text
-POST /api/kp-chart
+POST /api/kp-details
 ```
 
 Response field:

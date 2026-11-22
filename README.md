@@ -60,7 +60,7 @@ curl "http://127.0.0.1:8000/api/places?q=chennai&limit=5"
 Calculate a KP chart:
 
 ```bash
-curl -X POST http://127.0.0.1:8000/api/kp-chart \
+curl -X POST http://127.0.0.1:8000/api/kp-details \
   -H "Content-Type: application/json" \
   -d '{
     "name": "VJ",
