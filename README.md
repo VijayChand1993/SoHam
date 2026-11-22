@@ -16,6 +16,35 @@ cd backend
 uv run python -m uvicorn app.main:app --reload
 ```
 
+Run backend tests:
+
+```bash
+cd backend
+.venv/bin/python -m pytest
+```
+
+Show paid-reference match percentages:
+
+```bash
+cd backend
+.venv/bin/python -m pytest tests/test_kp_chart_golden.py -q
+```
+
+Show paid-reference mismatches:
+
+```bash
+cd backend
+.venv/bin/python -m pytest tests/test_kp_chart_golden.py -q --show-kp-mismatches
+```
+
+Run only cuspal or planetary golden tests:
+
+```bash
+cd backend
+.venv/bin/python -m pytest tests/test_kp_chart_golden.py -m cuspal -q
+.venv/bin/python -m pytest tests/test_kp_chart_golden.py -m planetary -q
+```
+
 Health check:
 
 ```bash

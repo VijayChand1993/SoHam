@@ -29,5 +29,14 @@ pyjhora = { git = "https://github.com/naturalstupid/PyJHora.git" }
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.0",
     "httpx2>=2.16.0",
+    "pytest>=8.0.0",
+]
+
+[tool.pytest.ini_options]
+markers = [
+    "cuspal: KP cuspal position golden/reference tests",
+    "planetary: KP planetary position golden/reference tests",
+    "golden: golden/reference value tests",
 ]
