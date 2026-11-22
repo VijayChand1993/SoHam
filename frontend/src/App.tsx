@@ -1157,7 +1157,17 @@ export default function App() {
                       </button>
                     ) : null}
                   </div>
-                  <NorthIndianChart houses={adaptBhavaChalitHouses(bhavaChalitChart)} />
+                  <NorthIndianChart
+                    houses={adaptBhavaChalitHouses(bhavaChalitChart)}
+                    onHouseClick={(house) => {
+                      const selectedHouse = houseSignificators?.houses.find(
+                        (item) => item.house_number === house.house_number
+                      );
+                      if (selectedHouse) {
+                        setSelectedSignificatorHouse(selectedHouse);
+                      }
+                    }}
+                  />
                 </div>
               )}
             </div>
