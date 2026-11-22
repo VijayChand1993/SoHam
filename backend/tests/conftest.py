@@ -110,6 +110,34 @@ def test003_paid_reference_payload() -> dict[str, Any]:
 
 
 @pytest.fixture
+def test004_paid_reference_payload() -> dict[str, Any]:
+    return {
+        "name": "Test004",
+        "birth_datetime": {
+            "year": 2026,
+            "month": 7,
+            "day": 29,
+            "hour": 14,
+            "minute": 12,
+            "second": 41,
+        },
+        "location": {
+            "name": "Hyderabad",
+            "latitude": 17 + 23 / 60 + 3 / 3600,
+            "longitude": 78 + 27 / 60 + 23 / 3600,
+            "timezone": 5.5,
+            "elevation": 0,
+        },
+        "settings": {
+            "ayanamsa_mode": "KP",
+            "house_cusp_method": 3,
+            "use_true_nodes": True,
+            "include_western_planets": True,
+        },
+    }
+
+
+@pytest.fixture
 def instant_prashna_payload(vj_chart_payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "location": deepcopy(vj_chart_payload["location"]),

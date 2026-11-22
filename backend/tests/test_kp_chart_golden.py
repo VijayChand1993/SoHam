@@ -314,3 +314,80 @@ class Test003:
             show_kp_mismatches=show_kp_mismatches,
             ignored_fields={"dms"},
         )
+
+
+@pytest.mark.golden
+class Test004:
+    @pytest.mark.cuspal
+    def test_cuspal_position(
+        self,
+        post_json: Callable[[str, dict[str, Any]], dict[str, Any]],
+        test004_paid_reference_payload: dict[str, Any],
+        record_reference_result: Callable[
+            [str, bool, int, int, float, float, str, list[str] | None],
+            None,
+        ],
+        show_kp_mismatches: bool,
+    ) -> None:
+        data = post_json("/api/kp-chart", test004_paid_reference_payload)
+
+        expected_cusps = [
+            ("House-1", "♏︎Scorpio", "07:27:38", "Mars♂", "Saturn♄", "Ketu☋", "Venus♀"),
+            ("House-2", "♐︎Sagittarius", "06:46:19", "Jupiter♃", "Ketu☋", "Rahu☊", "Ketu☋"),
+            ("House-3", "♑︎Capricorn", "07:37:49", "Saturn♄", "Sun☉", "Ketu☋", "Saturn♄"),
+            ("House-4", "♒︎Aquarius", "10:08:27", "Saturn♄", "Rahu☊", "Jupiter♃", "Mars♂"),
+            ("House-5", "♓︎Pisces", "12:16:45", "Jupiter♃", "Saturn♄", "Mars♂", "Jupiter♃"),
+            ("House-6", "♈Aries", "11:29:16", "Mars♂", "Ketu☋", "Mercury☿", "Mercury☿"),
+            ("House-7", "♉︎Taurus", "07:27:38", "Venus♀", "Sun☉", "Ketu☋", "Jupiter♃"),
+            ("House-8", "♊︎Gemini", "06:46:19", "Mercury☿", "Rahu☊", "Rahu☊", "Rahu☊"),
+            ("House-9", "♋︎Cancer", "07:37:49", "Moon☾", "Saturn♄", "Ketu☋", "Mars♂"),
+            ("House-10", "♌︎Leo", "10:08:27", "Sun☉", "Ketu☋", "Saturn♄", "Venus♀"),
+            ("House-11", "♍︎Virgo", "12:16:45", "Mercury☿", "Moon☾", "Rahu☊", "Jupiter♃"),
+            ("House-12", "♎︎Libra", "11:29:16", "Venus♀", "Rahu☊", "Saturn♄", "Venus♀"),
+        ]
+
+        assert_paid_reference_match_percentage(
+            data["cusps"],
+            expected_cusps,
+            title="Cuspal Position Tests / Test004",
+            record_reference_result=record_reference_result,
+            show_kp_mismatches=show_kp_mismatches,
+            ignored_fields={"dms"},
+        )
+
+    @pytest.mark.planetary
+    def test_planetary_position(
+        self,
+        post_json: Callable[[str, dict[str, Any]], dict[str, Any]],
+        test004_paid_reference_payload: dict[str, Any],
+        record_reference_result: Callable[
+            [str, bool, int, int, float, float, str, list[str] | None],
+            None,
+        ],
+        show_kp_mismatches: bool,
+    ) -> None:
+        data = post_json("/api/kp-chart", test004_paid_reference_payload)
+
+        expected_planets = [
+            ("Sun☉", "♋︎Cancer", "12:07:53", "Moon☾", "Saturn♄", "Mars♂", "Mars♂"),
+            ("Moon☾", "♑︎Capricorn", "09:22:47", "Saturn♄", "Sun☉", "Venus♀", "Saturn♄"),
+            ("Mars♂", "♉︎Taurus", "27:08:45", "Venus♀", "Mars♂", "Jupiter♃", "Venus♀"),
+            ("Mercury☿", "♊︎Gemini", "23:37:00", "Mercury☿", "Jupiter♃", "Saturn♄", "Jupiter♃"),
+            ("Jupiter♃", "♋︎Cancer", "12:14:28", "Moon☾", "Saturn♄", "Mars♂", "Rahu☊"),
+            ("Venus♀", "♌︎Leo", "27:10:12", "Sun☉", "Sun☉", "Sun☉", "Mercury☿"),
+            ("Saturn♄", "♓︎Pisces", "20:36:28", "Jupiter♃", "Mercury☿", "Venus♀", "Jupiter♃"),
+            ("Rahu☊", "♒︎Aquarius", "05:43:32", "Saturn♄", "Mars♂", "Moon☾", "Rahu☊"),
+            ("Ketu☋", "♌︎Leo", "05:43:32", "Sun☉", "Ketu☋", "Rahu☊", "Rahu☊"),
+            ("Uranus⛢", "♉︎Taurus", "10:47:05", "Venus♀", "Moon☾", "Moon☾", "Mercury☿"),
+            ("Neptune♆", "♓︎Pisces", "10:09:15", "Jupiter♃", "Saturn♄", "Venus♀", "Mercury☿"),
+            ("Pluto♇", "♑︎Capricorn", "10:06:01", "Saturn♄", "Moon☾", "Moon☾", "Mars♂"),
+        ]
+
+        assert_paid_reference_match_percentage(
+            data["planets"][1:],
+            expected_planets,
+            title="Planetary Position Tests / Test004",
+            record_reference_result=record_reference_result,
+            show_kp_mismatches=show_kp_mismatches,
+            ignored_fields={"dms"},
+        )
