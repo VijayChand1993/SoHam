@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Info, LoaderCircle, LocateFixed } from "lucide-react";
+import { Check, Clipboard, Info, LoaderCircle, LocateFixed, Sparkles } from "lucide-react";
+import ReactMarkdown from "react-markdown";
 
 import {
   BhavaChalitChartResponse,
@@ -8,6 +9,7 @@ import {
   calculateHouseSignificators,
   calculateInstantPrashna,
   calculateKpChart,
+  calculateTodayPrediction,
   calculateTransitChart,
   BirthDateTimeRequest,
   D1ChartPlanet,
@@ -20,9 +22,11 @@ import {
   KpChartResponse,
   PlaceSearchResult,
   PositionRow,
+  RulingPlanetPlacementRequest,
   reversePlace,
   SignificatorPlanet,
-  searchPlaces
+  searchPlaces,
+  TodayPredictionRequest
 } from "./api/kpClient";
 import { NorthIndianChart } from "./components/NorthIndianChart";
 
@@ -216,6 +220,96 @@ function formatRulingPlanetName(item: DirectRulingPlanetItem) {
   return `${item.short_name}${item.state_flags.retrograde ? " *" : ""}`;
 }
 
+function sanitizeRashi(value: string) {
+  return value.replace(/[^A-Za-z]/g, "");
+}
+
+function rulingPlanetPlacementFromItem(
+  item: DirectRulingPlanetItem
+): RulingPlanetPlacementRequest {
+  if (!item.bhava_house_number || !item.rashi) {
+    throw new Error(`${formatRole(item.role)} is missing house or rashi data.`);
+  }
+
+  return {
+    planet: item.short_name,
+    house: item.bhava_house_number,
+    rashi: sanitizeRashi(item.rashi)
+  };
+}
+
+function findRequiredRulingPlanet(
+  items: DirectRulingPlanetItem[],
+  role: string
+): RulingPlanetPlacementRequest {
+  const item = items.find((candidate) => candidate.role === role);
+  if (!item) {
+    throw new Error(`${formatRole(role)} is missing from ruling planets.`);
+  }
+
+  return rulingPlanetPlacementFromItem(item);
+}
+
+function findTransitNodeRulingPlanet(
+  items: DirectRulingPlanetItem[],
+  shortName: "Ke" | "Ra"
+): RulingPlanetPlacementRequest | undefined {
+  const item = items.find(
+    (candidate) =>
+      candidate.role === "transit_node_in_base_rp_sign" &&
+      candidate.short_name === shortName
+  );
+
+  return item ? rulingPlanetPlacementFromItem(item) : undefined;
+}
+
+function buildTodayPredictionPayload(
+  items: DirectRulingPlanetItem[]
+): TodayPredictionRequest {
+  const payload: TodayPredictionRequest = {
+    asc_rashi_lord: findRequiredRulingPlanet(items, "asc_rashi_lord"),
+    moon_placement: findRequiredRulingPlanet(items, "moon"),
+    moon_star_lord: findRequiredRulingPlanet(items, "moon_star_lord"),
+    moon_rashi_lord: findRequiredRulingPlanet(items, "moon_rashi_lord"),
+    day_lord: findRequiredRulingPlanet(items, "day_lord")
+  };
+
+  const ketuTransit = findTransitNodeRulingPlanet(items, "Ke");
+  const rahuTransit = findTransitNodeRulingPlanet(items, "Ra");
+  if (ketuTransit) {
+    payload.transit_node_ke_in_base_rp_sign = ketuTransit;
+  }
+  if (rahuTransit) {
+    payload.transit_node_ra_in_base_rp_sign = rahuTransit;
+  }
+
+  return payload;
+}
+
+function buildRulingPlanetsClipboardText(
+  items: DirectRulingPlanetItem[],
+  prediction: string
+) {
+  const rows = items.map((item) =>
+    [
+      item.label,
+      formatRulingPlanetName(item),
+      formatRole(item.role),
+      item.bhava_house_number ?? "-",
+      item.rashi ?? "-"
+    ].join("\t")
+  );
+
+  return [
+    "Ruling Planets",
+    "RP\tPlanet\tRole\tHouse\tRashi",
+    ...rows,
+    prediction ? `\nToday's Prediction\n${prediction}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 function formatSignificatorText(item: SignificatorPlanet) {
   return `${item.short_name} ${formatHouseList(item.significations)}`;
 }
@@ -323,11 +417,35 @@ function HouseSignificatorModal({
 
 function RulingPlanetsModal({
   items,
-  onClose
+  isPredictionLoading,
+  onClose,
+  onTodayPrediction,
+  prediction,
+  predictionError
 }: {
   items: DirectRulingPlanetItem[];
+  isPredictionLoading: boolean;
   onClose: () => void;
+  onTodayPrediction: () => void;
+  prediction: string;
+  predictionError: string;
 }) {
+  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
+  const isPredictionDone = Boolean(prediction);
+
+  async function handleCopyModalContent() {
+    try {
+      await navigator.clipboard.writeText(
+        buildRulingPlanetsClipboardText(items, prediction)
+      );
+      setCopyStatus("copied");
+      window.setTimeout(() => setCopyStatus("idle"), 1600);
+    } catch {
+      setCopyStatus("error");
+      window.setTimeout(() => setCopyStatus("idle"), 2200);
+    }
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-[#18202b]/45 p-4"
@@ -342,8 +460,32 @@ function RulingPlanetsModal({
       >
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="m-0 text-lg">Ruling Planets</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="m-0 text-lg">Ruling Planets</h2>
+              <button
+                aria-label="Copy ruling planets modal content"
+                className="inline-grid h-8 w-8 cursor-pointer place-items-center rounded-md border border-[#b9c4cf] bg-white text-[#214668] hover:bg-[#eef3f7]"
+                title={
+                  copyStatus === "copied"
+                    ? "Copied"
+                    : copyStatus === "error"
+                      ? "Copy failed"
+                      : "Copy modal content"
+                }
+                type="button"
+                onClick={handleCopyModalContent}
+              >
+                {copyStatus === "copied" ? (
+                  <Check aria-hidden="true" className="h-4 w-4" />
+                ) : (
+                  <Clipboard aria-hidden="true" className="h-4 w-4" />
+                )}
+              </button>
+            </div>
             <div className="text-sm text-[#5d6876]">Retrograde planets are marked with *</div>
+            {copyStatus === "error" && (
+              <div className="text-xs text-[#b42318]">Copy failed.</div>
+            )}
           </div>
           <button
             aria-label="Close"
@@ -388,6 +530,76 @@ function RulingPlanetsModal({
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="mt-4 grid gap-3">
+          <button
+            className="inline-flex min-h-10 w-fit cursor-pointer items-center gap-2 rounded-md border border-[#214668] bg-[#214668] px-4 py-2 text-sm font-semibold text-white disabled:cursor-default disabled:opacity-70"
+            disabled={isPredictionLoading || isPredictionDone}
+            type="button"
+            onClick={onTodayPrediction}
+          >
+            {isPredictionLoading ? (
+              <LoaderCircle aria-hidden="true" className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles aria-hidden="true" className="h-4 w-4" />
+            )}
+            Today's Predictions
+          </button>
+
+          {predictionError && (
+            <div className="rounded-md border border-[#f3b6b0] bg-[#fff4f2] px-3 py-2 text-sm text-[#b42318]">
+              {predictionError}
+            </div>
+          )}
+
+          {prediction && (
+            <div className="grid gap-2 rounded-md border border-[#d8e0e8] bg-[#f8fafc] p-3">
+              <h3 className="m-0 text-sm font-semibold text-[#18202b]">
+                Today's Prediction
+              </h3>
+              <ReactMarkdown
+                components={{
+                  h1: ({ children }) => (
+                    <h4 className="m-0 mt-3 text-base font-semibold text-[#18202b] first:mt-0">
+                      {children}
+                    </h4>
+                  ),
+                  h2: ({ children }) => (
+                    <h4 className="m-0 mt-3 text-base font-semibold text-[#18202b] first:mt-0">
+                      {children}
+                    </h4>
+                  ),
+                  h3: ({ children }) => (
+                    <h4 className="m-0 mt-3 text-sm font-semibold text-[#18202b] first:mt-0">
+                      {children}
+                    </h4>
+                  ),
+                  p: ({ children }) => (
+                    <p className="m-0 mb-2 last:mb-0">{children}</p>
+                  ),
+                  ul: ({ children }) => (
+                    <ul className="m-0 mb-2 list-disc pl-5 last:mb-0">
+                      {children}
+                    </ul>
+                  ),
+                  ol: ({ children }) => (
+                    <ol className="m-0 mb-2 list-decimal pl-5 last:mb-0">
+                      {children}
+                    </ol>
+                  ),
+                  li: ({ children }) => <li className="mb-1">{children}</li>,
+                  strong: ({ children }) => (
+                    <strong className="font-semibold text-[#18202b]">
+                      {children}
+                    </strong>
+                  )
+                }}
+              >
+                {prediction}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -470,6 +682,9 @@ export default function App() {
   const [isTransitLoading, setIsTransitLoading] = useState(false);
   const [transitChart, setTransitChart] = useState<D1ChartResponse | null>(null);
   const [transitError, setTransitError] = useState("");
+  const [todayPrediction, setTodayPrediction] = useState("");
+  const [todayPredictionError, setTodayPredictionError] = useState("");
+  const [isTodayPredictionLoading, setIsTodayPredictionLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [isSearchingPlaces, setIsSearchingPlaces] = useState(false);
   const [isDetectingLocation, setIsDetectingLocation] = useState(false);
@@ -619,11 +834,18 @@ export default function App() {
     setIsTransitLoading(false);
   }
 
+  function resetTodayPrediction() {
+    setTodayPrediction("");
+    setTodayPredictionError("");
+    setIsTodayPredictionLoading(false);
+  }
+
   function handleChartModeChange(nextMode: ChartMode) {
     setChartMode(nextMode);
     setSelectedSignificatorHouse(null);
     setIsRulingPlanetsOpen(false);
     setStatus("");
+    resetTodayPrediction();
     resetTransitOverlay();
   }
 
@@ -790,6 +1012,28 @@ export default function App() {
     return byHouse;
   }, [d1Chart, transitChart]);
 
+  async function handleTodayPrediction() {
+    if (!chart?.direct_ruling_planets.items.length || todayPrediction) {
+      return;
+    }
+
+    setIsTodayPredictionLoading(true);
+    setTodayPredictionError("");
+
+    try {
+      const response = await calculateTodayPrediction(
+        buildTodayPredictionPayload(chart.direct_ruling_planets.items)
+      );
+      setTodayPrediction(response.prediction);
+    } catch (error) {
+      setTodayPredictionError(
+        error instanceof Error ? error.message : "Today's prediction failed."
+      );
+    } finally {
+      setIsTodayPredictionLoading(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setStatus(
@@ -798,6 +1042,7 @@ export default function App() {
         : "Calculating chart..."
     );
     setIsCalculating(true);
+    resetTodayPrediction();
     resetTransitOverlay();
 
     try {
@@ -851,6 +1096,7 @@ export default function App() {
       setSelectedSignificatorHouse(null);
       setIsRulingPlanetsOpen(false);
       setTransitChart(null);
+      resetTodayPrediction();
       setStatus(error instanceof Error ? error.message : "Chart calculation failed.");
     } finally {
       setIsCalculating(false);
@@ -1205,7 +1451,11 @@ export default function App() {
       {isRulingPlanetsOpen && chart?.direct_ruling_planets.items.length && (
         <RulingPlanetsModal
           items={chart.direct_ruling_planets.items}
+          isPredictionLoading={isTodayPredictionLoading}
           onClose={() => setIsRulingPlanetsOpen(false)}
+          onTodayPrediction={handleTodayPrediction}
+          prediction={todayPrediction}
+          predictionError={todayPredictionError}
         />
       )}
       </div>

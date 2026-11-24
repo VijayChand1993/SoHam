@@ -290,6 +290,29 @@ http://151.185.32.75
 
 ## 13. Run Backend As A Permanent Service
 
+Create a backend environment file for server-only secrets and runtime config:
+
+```bash
+sudo mkdir -p /etc/soham
+sudo nano /etc/soham/backend.env
+```
+
+Paste the required values:
+
+```env
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-mini
+```
+
+Important: do not put frontend values or browser-exposed values in this file. Keep API keys and other secrets on the backend only.
+
+Secure the environment file so the `soham` service user can read it:
+
+```bash
+sudo chown root:soham /etc/soham/backend.env
+sudo chmod 640 /etc/soham/backend.env
+```
+
 Create a `systemd` service:
 
 ```bash
@@ -308,6 +331,7 @@ Type=simple
 User=soham
 Group=soham
 WorkingDirectory=/home/soham/SoHam/backend
+EnvironmentFile=/etc/soham/backend.env
 Environment=PATH=/home/soham/SoHam/backend/.venv/bin:/home/soham/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/home/soham/.local/bin/uv run uvicorn app.main:app --host 127.0.0.1 --port 8000
 Restart=always
@@ -324,6 +348,18 @@ sudo systemctl daemon-reload
 sudo systemctl enable soham-backend
 sudo systemctl start soham-backend
 sudo systemctl status soham-backend
+```
+
+Verify the environment file is attached without printing secret values:
+
+```bash
+sudo systemctl show soham-backend --property=EnvironmentFiles
+```
+
+Expected:
+
+```text
+EnvironmentFiles=/etc/soham/backend.env
 ```
 
 Test:

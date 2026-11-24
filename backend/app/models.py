@@ -1,6 +1,6 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 KP_CHART_REQUEST_EXAMPLE = {
@@ -40,6 +40,40 @@ INSTANT_PRASHNA_REQUEST_EXAMPLE = {
         "use_true_nodes": False,
         "include_western_planets": False,
     },
+}
+
+TODAY_PREDICTION_REQUEST_EXAMPLE = {
+    "asc_rashi_lord": {"planet": "Mo", "house": 5, "rashi": "Aries"},
+    "moon_placement": {"planet": "Mo", "house": 5, "rashi": "Aries"},
+    "moon_star_lord": {"planet": "Su", "house": 11, "rashi": "Libra"},
+    "moon_rashi_lord": {"planet": "Ve", "house": 10, "rashi": "Virgo"},
+    "day_lord": {"planet": "Ve", "house": 10, "rashi": "Virgo"},
+    "transit_node_ke_in_base_rp_sign": {
+        "planet": "Ke",
+        "house": 8,
+        "rashi": "Cancer",
+    },
+    "transit_node_ra_in_base_rp_sign": {
+        "planet": "Ra",
+        "house": 10,
+        "rashi": "Capricorn",
+    },
+}
+
+VALID_RP_PLANETS = {"Su", "Mo", "Ma", "Me", "Ju", "Ve", "Sa", "Ra", "Ke"}
+VALID_RASHIS = {
+    "Aries",
+    "Taurus",
+    "Gemini",
+    "Cancer",
+    "Leo",
+    "Virgo",
+    "Libra",
+    "Scorpio",
+    "Sagittarius",
+    "Capricorn",
+    "Aquarius",
+    "Pisces",
 }
 
 
@@ -87,6 +121,46 @@ class InstantPrashnaRequest(BaseModel):
     settings: CalculationSettingsRequest = Field(
         default_factory=CalculationSettingsRequest
     )
+
+
+class RulingPlanetPlacementRequest(BaseModel):
+    planet: str
+    house: int = Field(..., ge=1, le=12)
+    rashi: str
+
+    @field_validator("planet")
+    @classmethod
+    def validate_planet(cls, value: str) -> str:
+        if value not in VALID_RP_PLANETS:
+            valid_values = ", ".join(sorted(VALID_RP_PLANETS))
+            raise ValueError(f"planet must be one of: {valid_values}")
+        return value
+
+    @field_validator("rashi")
+    @classmethod
+    def validate_rashi(cls, value: str) -> str:
+        if value not in VALID_RASHIS:
+            valid_values = ", ".join(sorted(VALID_RASHIS))
+            raise ValueError(f"rashi must be one of: {valid_values}")
+        return value
+
+
+class TodayPredictionRequest(BaseModel):
+    model_config = ConfigDict(
+        json_schema_extra={"example": TODAY_PREDICTION_REQUEST_EXAMPLE}
+    )
+
+    asc_rashi_lord: RulingPlanetPlacementRequest
+    moon_placement: RulingPlanetPlacementRequest
+    moon_star_lord: RulingPlanetPlacementRequest
+    moon_rashi_lord: RulingPlanetPlacementRequest
+    day_lord: RulingPlanetPlacementRequest
+    transit_node_ke_in_base_rp_sign: RulingPlanetPlacementRequest | None = None
+    transit_node_ra_in_base_rp_sign: RulingPlanetPlacementRequest | None = None
+
+
+class TodayPredictionResponse(BaseModel):
+    prediction: str
 
 
 class KpLordResponse(BaseModel):

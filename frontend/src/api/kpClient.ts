@@ -247,6 +247,26 @@ export type InstantPrashnaResponse = {
   house_significators: HouseSignificatorsChartResponse;
 };
 
+export type RulingPlanetPlacementRequest = {
+  planet: string;
+  house: number;
+  rashi: string;
+};
+
+export type TodayPredictionRequest = {
+  asc_rashi_lord: RulingPlanetPlacementRequest;
+  moon_placement: RulingPlanetPlacementRequest;
+  moon_star_lord: RulingPlanetPlacementRequest;
+  moon_rashi_lord: RulingPlanetPlacementRequest;
+  day_lord: RulingPlanetPlacementRequest;
+  transit_node_ke_in_base_rp_sign?: RulingPlanetPlacementRequest;
+  transit_node_ra_in_base_rp_sign?: RulingPlanetPlacementRequest;
+};
+
+export type TodayPredictionResponse = {
+  prediction: string;
+};
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -332,6 +352,15 @@ export function calculateInstantPrashna(
   payload: InstantPrashnaRequest
 ): Promise<InstantPrashnaResponse> {
   return requestJson<InstantPrashnaResponse>("/api/kp/instant-prashna", {
+    method: "POST",
+    body: JSON.stringify(payload)
+  });
+}
+
+export function calculateTodayPrediction(
+  payload: TodayPredictionRequest
+): Promise<TodayPredictionResponse> {
+  return requestJson<TodayPredictionResponse>("/api/ai/today-prediction", {
     method: "POST",
     body: JSON.stringify(payload)
   });

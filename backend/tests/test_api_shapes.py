@@ -1,6 +1,8 @@
 from collections.abc import Callable
 from typing import Any
 
+from fastapi.testclient import TestClient
+
 
 def assert_request_echo(data: dict[str, Any], payload: dict[str, Any]) -> None:
     assert data["name"] == payload["name"]
@@ -164,3 +166,75 @@ def test_instant_prashna_shape(
     assert len(data["d1_chart"]["houses"]) == 12
     assert len(data["bhava_chalit_chart"]["houses"]) == 12
     assert len(data["house_significators"]["houses"]) == 12
+
+
+def today_prediction_payload() -> dict[str, Any]:
+    return {
+        "asc_rashi_lord": {"planet": "Mo", "house": 5, "rashi": "Aries"},
+        "moon_placement": {"planet": "Mo", "house": 5, "rashi": "Aries"},
+        "moon_star_lord": {"planet": "Su", "house": 11, "rashi": "Libra"},
+        "moon_rashi_lord": {"planet": "Ve", "house": 10, "rashi": "Virgo"},
+        "day_lord": {"planet": "Ve", "house": 10, "rashi": "Virgo"},
+        "transit_node_ke_in_base_rp_sign": {
+            "planet": "Ke",
+            "house": 8,
+            "rashi": "Cancer",
+        },
+        "transit_node_ra_in_base_rp_sign": {
+            "planet": "Ra",
+            "house": 10,
+            "rashi": "Capricorn",
+        },
+    }
+
+
+def test_today_prediction_shape(client: TestClient, monkeypatch: Any) -> None:
+    from app.models import TodayPredictionResponse
+
+    def mock_prediction(_: Any) -> TodayPredictionResponse:
+        return TodayPredictionResponse(prediction="Mocked AI response")
+
+    monkeypatch.setattr("app.main.calculate_today_prediction_response", mock_prediction)
+
+    response = client.post("/api/ai/today-prediction", json=today_prediction_payload())
+
+    assert response.status_code == 200
+    assert response.json() == {"prediction": "Mocked AI response"}
+
+
+def test_today_prediction_rejects_invalid_rashi(client: TestClient) -> None:
+    payload = today_prediction_payload()
+    payload["transit_node_ra_in_base_rp_sign"]["rashi"] = "Capricon"
+
+    response = client.post("/api/ai/today-prediction", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_today_prediction_rejects_invalid_planet(client: TestClient) -> None:
+    payload = today_prediction_payload()
+    payload["transit_node_ra_in_base_rp_sign"]["planet"] = "Re"
+
+    response = client.post("/api/ai/today-prediction", json=payload)
+
+    assert response.status_code == 422
+
+
+def test_today_prediction_accepts_missing_transit_nodes(
+    client: TestClient,
+    monkeypatch: Any,
+) -> None:
+    from app.models import TodayPredictionResponse
+
+    def mock_prediction(_: Any) -> TodayPredictionResponse:
+        return TodayPredictionResponse(prediction="Mocked AI response")
+
+    monkeypatch.setattr("app.main.calculate_today_prediction_response", mock_prediction)
+    payload = today_prediction_payload()
+    del payload["transit_node_ke_in_base_rp_sign"]
+    del payload["transit_node_ra_in_base_rp_sign"]
+
+    response = client.post("/api/ai/today-prediction", json=payload)
+
+    assert response.status_code == 200
+    assert response.json() == {"prediction": "Mocked AI response"}

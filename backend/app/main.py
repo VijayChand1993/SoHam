@@ -12,7 +12,10 @@ from app.models import (
     KpChartResponse,
     PlaceReverseResponse,
     PlaceSearchResponse,
+    TodayPredictionRequest,
+    TodayPredictionResponse,
 )
+from app.services.ai_predictions import calculate_today_prediction_response
 from app.services.kp_calculator import (
     calculate_bhava_chalit_chart_response,
     calculate_chart_response,
@@ -131,5 +134,15 @@ def instant_prashna(request: InstantPrashnaRequest) -> InstantPrashnaResponse:
         return calculate_instant_prashna_response(request)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/ai/today-prediction", response_model=TodayPredictionResponse)
+def today_prediction(request: TodayPredictionRequest) -> TodayPredictionResponse:
+    try:
+        return calculate_today_prediction_response(request)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc

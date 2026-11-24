@@ -9,6 +9,17 @@ wheels/
 # Virtual environments
 .venv
 
+# Environment files
+.env
+.env.*
+!.env.example
+backend/.env
+backend/.env.*
+!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+
 # Frontend dependencies/build output
 node_modules/
 frontend/node_modules/
