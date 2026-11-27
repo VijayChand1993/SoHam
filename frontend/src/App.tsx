@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Clipboard, Info, LoaderCircle, LocateFixed, Sparkles } from "lucide-react";
+import { Check, Clipboard, Info, LoaderCircle, LocateFixed, Mail, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 import {
@@ -365,7 +365,7 @@ function HouseSignificatorModal({
     >
       <div
         aria-modal="true"
-        className="max-h-[86vh] w-full max-w-[860px] overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
+        className="max-h-[86vh] w-full max-w-215 overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -385,24 +385,24 @@ function HouseSignificatorModal({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse">
+          <table className="w-full min-w-130 border-collapse">
             <thead>
               <tr>
-                <th className="w-24 border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">Lord</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">Planet</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs uppercase">STL</th>
+                <th className="w-24 border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs uppercase">Lord</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs uppercase">Planet</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs uppercase">STL</th>
               </tr>
             </thead>
             <tbody>
               {significatorRows(house).map((row, index) => (
                 <tr key={`${row.label}-${index}`}>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top font-semibold whitespace-nowrap">
                     {row.label}
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top">
                     <SignificatorCell item={row.primary} />
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top">
                     <SignificatorCell item={row.secondary} />
                   </td>
                 </tr>
@@ -454,7 +454,7 @@ function RulingPlanetsModal({
     >
       <div
         aria-modal="true"
-        className="max-h-[86vh] w-full max-w-[760px] overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
+        className="max-h-[86vh] w-full max-w-190 overflow-auto rounded-lg border border-[#d8e0e8] bg-white p-5 shadow-xl"
         role="dialog"
         onMouseDown={(event) => event.stopPropagation()}
       >
@@ -498,32 +498,32 @@ function RulingPlanetsModal({
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px] border-collapse">
+          <table className="w-full min-w-140 border-collapse">
             <thead>
               <tr>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">RP</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Planet</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Role</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">House</th>
-                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Rashi</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">RP</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">Planet</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">Role</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">House</th>
+                <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">Rashi</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item, index) => (
                 <tr key={`${item.label}-${item.role}-${item.short_name}-${index}`}>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top font-semibold whitespace-nowrap">
                     {item.label}
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top font-semibold whitespace-nowrap text-[#214668]">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top font-semibold whitespace-nowrap text-[#214668]">
                     {formatRulingPlanetName(item)}
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top whitespace-nowrap">
                     {formatRole(item.role)}
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top whitespace-nowrap">
                     {item.bhava_house_number ?? "-"}
                   </td>
-                  <td className="border-b border-[#d8e0e8] px-2.5 py-[11px] align-top whitespace-nowrap">
+                  <td className="border-b border-[#d8e0e8] px-2.5 py-2.75 align-top whitespace-nowrap">
                     {item.rashi ?? "-"}
                   </td>
                 </tr>
@@ -614,23 +614,23 @@ function ResultsTable({
   onNameClick?: (row: PositionRow, index: number) => void;
 }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[820px] border-collapse">
+    <div className="w-full max-w-full overflow-x-auto">
+      <table className="w-full min-w-205 border-collapse">
         <thead>
           <tr>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Name</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">Sign</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">D-M-S</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">RL</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">STL</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">SL</th>
-            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-[9px] text-left text-xs whitespace-nowrap uppercase">SSL</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">Name</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">Sign</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">D-M-S</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">RL</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">STL</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">SL</th>
+            <th className="border-b border-[#d8e0e8] bg-[#f0f4f8] px-2.5 py-2.25 text-left text-xs whitespace-nowrap uppercase">SSL</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, index) => (
             <tr key={row.label}>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">
                 {onNameClick ? (
                   <button
                     className="cursor-pointer font-semibold text-[#214668] underline-offset-2 hover:underline"
@@ -643,12 +643,12 @@ function ResultsTable({
                   row.label
                 )}
               </td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.sign}</td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.dms}</td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.kp.rasi_lord}</td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.kp.star_lord}</td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.kp.sub_lord}</td>
-              <td className="border-b border-[#d8e0e8] px-2.5 py-[9px] text-left whitespace-nowrap">{row.kp.sub_sub_lord}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.sign}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.dms}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.kp.rasi_lord}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.kp.star_lord}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.kp.sub_lord}</td>
+              <td className="border-b border-[#d8e0e8] px-2.5 py-2.25 text-left whitespace-nowrap">{row.kp.sub_sub_lord}</td>
             </tr>
           ))}
         </tbody>
@@ -1104,23 +1104,31 @@ export default function App() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f5f7fa] px-4 py-4 font-sans text-[#18202b] sm:px-7 sm:py-7">
-      <div className="mx-auto grid max-w-[1180px] gap-6">
-      <section className="grid gap-[18px] rounded-lg border border-[#d8e0e8] bg-white p-5">
-        <div>
+    <main className="min-h-screen overflow-x-hidden bg-[#f5f7fa] px-4 py-4 font-sans text-[#18202b] sm:px-7 sm:py-7">
+      <div className="mx-auto grid w-full min-w-0 max-w-295 gap-6">
+      <section className="grid min-w-0 gap-4.5 rounded-lg border border-[#d8e0e8] bg-white p-5">
+        <div className="flex items-start justify-between gap-4">
           <h1 className="m-0 text-[28px]">SoHam</h1>
-          <p className="m-0 text-sm text-[#5d6876]">FastAPI backend at http://127.0.0.1:8000</p>
+          <a
+            href="https://mail.google.com/mail/?view=cm&fs=1&to=delulu.vj@gmail.com"
+            target="_blank"
+            rel="noreferrer"
+            title="delulu.vj@gmail.com"
+          >
+            <Mail aria-hidden="true" className="h-4 w-4" />
+            {/* <span className="hidden sm:inline">delulu.vj@gmail.com</span> */}
+          </a>
         </div>
 
-        <form className="grid gap-3.5" onSubmit={handleSubmit}>
+        <form className="grid min-w-0 gap-3.5" onSubmit={handleSubmit}>
           <div
-            className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-[3px] sm:w-[380px]"
+            className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-0.75 sm:w-95"
             role="tablist"
             aria-label="Chart calculation mode"
           >
             <button
               aria-selected={chartMode === "birth_chart"}
-              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+              className={`min-h-8.5 cursor-pointer rounded-md px-3.5 text-[#314154] ${
                 chartMode === "birth_chart"
                   ? "border border-[#b9c4cf] bg-white text-[#18202b]"
                   : "border border-transparent bg-transparent"
@@ -1132,7 +1140,7 @@ export default function App() {
             </button>
             <button
               aria-selected={chartMode === "instant_prashna"}
-              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+              className={`min-h-8.5 cursor-pointer rounded-md px-3.5 text-[#314154] ${
                 chartMode === "instant_prashna"
                   ? "border border-[#b9c4cf] bg-white text-[#18202b]"
                   : "border border-transparent bg-transparent"
@@ -1145,7 +1153,7 @@ export default function App() {
           </div>
 
           {chartMode === "birth_chart" && (
-            <div className="grid gap-3.5 md:grid-cols-3">
+            <div className="grid min-w-0 gap-3.5 md:grid-cols-3">
               <label className="grid gap-1.5 text-[13px] font-semibold">
                 Name
                 <input
@@ -1177,13 +1185,13 @@ export default function App() {
           )}
 
           <div
-            className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-[3px] sm:w-[340px]"
+            className="inline-grid w-full grid-cols-2 rounded-lg border border-[#cbd5df] bg-[#eef3f7] p-0.75 sm:w-85"
             role="tablist"
             aria-label="Location input mode"
           >
             <button
               aria-selected={locationMode === "place"}
-              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+              className={`min-h-8.5 cursor-pointer rounded-md px-3.5 text-[#314154] ${
                 locationMode === "place"
                   ? "border border-[#b9c4cf] bg-white text-[#18202b]"
                   : "border border-transparent bg-transparent"
@@ -1195,7 +1203,7 @@ export default function App() {
             </button>
             <button
               aria-selected={locationMode === "coordinates"}
-              className={`min-h-[34px] cursor-pointer rounded-md px-3.5 text-[#314154] ${
+              className={`min-h-8.5 cursor-pointer rounded-md px-3.5 text-[#314154] ${
                 locationMode === "coordinates"
                   ? "border border-[#b9c4cf] bg-white text-[#18202b]"
                   : "border border-transparent bg-transparent"
@@ -1207,7 +1215,7 @@ export default function App() {
             </button>
           </div>
 
-          <div className="grid min-h-[360px] content-start gap-3.5 md:min-h-[238px]">
+          <div className="grid min-h-90 min-w-0 content-start gap-3.5 md:min-h-59.5">
             {locationMode === "place" ? (
               <>
                 <label className="grid gap-1.5 text-[13px] font-semibold">
@@ -1238,10 +1246,10 @@ export default function App() {
                 </label>
 
                 {visiblePlaces.length > 0 && (
-                  <div className="grid max-w-[960px] grid-cols-1 gap-1.5 md:grid-cols-4">
+                  <div className="grid min-w-0 max-w-240 grid-cols-1 gap-1.5 md:grid-cols-4">
                     {visiblePlaces.map((place) => (
                       <button
-                        className="min-h-11 cursor-pointer rounded-md border border-[#b9c4cf] bg-[#eef3f7] px-3.5 py-2 text-left break-words text-[#18202b]"
+                        className="min-h-11 cursor-pointer rounded-md border border-[#b9c4cf] bg-[#eef3f7] px-3.5 py-2 text-left wrap-break-word text-[#18202b]"
                         type="button"
                         key={`${place.display_name}-${place.latitude}-${place.longitude}`}
                         onClick={() => {
@@ -1261,8 +1269,8 @@ export default function App() {
                 </div>
               </>
             ) : (
-              <div className="grid gap-3.5">
-                <div className="grid gap-3.5 md:grid-cols-3">
+              <div className="grid min-w-0 gap-3.5">
+                <div className="grid min-w-0 gap-3.5 md:grid-cols-3">
                   <label className="grid gap-1.5 text-[13px] font-semibold">
                     Latitude
                     <input
@@ -1341,7 +1349,7 @@ export default function App() {
       </section>
 
       {(chart || d1Chart || bhavaChalitChart) && (
-        <section className="grid gap-6 rounded-lg border border-[#d8e0e8] bg-white p-5">
+        <section className="grid min-w-0 gap-6 rounded-lg border border-[#d8e0e8] bg-white p-5">
           {chartMode === "instant_prashna" && instantPrashnaDateTime && chart && (
             <div className="rounded-md border border-[#d8e0e8] bg-[#f5f7fa] px-3 py-2 text-sm text-[#5d6876]">
               Instant Prashna calculated for:{" "}
@@ -1353,9 +1361,9 @@ export default function App() {
           )}
 
           {(d1Chart || bhavaChalitChart) && (
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid min-w-0 gap-6 lg:grid-cols-2">
               {d1Chart && (
-                <div>
+                <div className="min-w-0">
                   <div className="mb-2.5 flex flex-wrap items-center gap-3">
                     <h2 className="m-0 text-lg">Rashi Chart</h2>
                     <label className="flex items-center gap-2 text-[13px] font-semibold text-[#314154]">
@@ -1388,7 +1396,7 @@ export default function App() {
               )}
 
               {bhavaChalitChart && (
-                <div>
+                <div className="min-w-0">
                   <div className="mb-2.5 flex items-center gap-2">
                     <h2 className="m-0 text-lg">Bhava Chalit</h2>
                     {chart?.direct_ruling_planets.items.length ? (
@@ -1421,7 +1429,7 @@ export default function App() {
 
           {chart && (
             <>
-              <div>
+              <div className="min-w-0">
                 <h2 className="mb-2.5 text-lg">Cuspal Positions</h2>
                 <ResultsTable
                   rows={chart.cusps}
@@ -1434,7 +1442,7 @@ export default function App() {
                 />
               </div>
 
-              <div>
+              <div className="min-w-0">
                 <h2 className="mb-2.5 text-lg">Planetary Positions</h2>
                 <ResultsTable rows={chart.planets} />
               </div>
